@@ -3,8 +3,8 @@ services:
     name: knust-library-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm install --include=dev && npm run build
-    startCommand: npm start
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx prisma migrate deploy && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -14,6 +14,8 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ML_SERVICE_URL
         sync: false
 
   - type: web
@@ -27,8 +29,8 @@ services:
   - type: static
     name: knust-library-frontend
     rootDir: frontend
-    buildCommand: npm install && npm run build
-    staticPublishPath: frontend/dist
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
