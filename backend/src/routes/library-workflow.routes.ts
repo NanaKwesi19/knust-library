@@ -8,7 +8,8 @@ router.use(protect);
 const activeLoanStatuses = [LoanStatus.BORROWED, LoanStatus.RENEWED];
 
 async function getSettings() {
-  return prisma.librarySetting.findFirst() ?? {
+  const settings = await prisma.librarySetting.findFirst();
+  return settings ?? {
     maxBooksPerStudent: 5, maxBooksPerStaff: 10, loanDurationDays: 14, renewalLimit: 1,
     fineRatePerDay: 2, maxFineAmount: 50, lostBookDaysThreshold: 90, lostBookFee: 150,
     gracePeriodDays: 3, libraryName: 'KNUST Library', institution: 'Kwame Nkrumah University of Science and Technology', openingHours: {}
