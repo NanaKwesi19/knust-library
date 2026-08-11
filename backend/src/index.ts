@@ -4,10 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-// Jobs
 import { initCronJobs } from './jobs/cron.js';
-
-// Route Handlers
 import authRoutes from './routes/auth.routes.js';
 import loanRoutes from './routes/loan.routes.js';
 import bookRoutes from './routes/book.routes.js';
@@ -22,8 +19,8 @@ import aiRoutes from './routes/ai.routes.js';
 import auditLogRoutes from './routes/audit-logs.routes.js';
 import configRoutes from './routes/config.routes.js';
 import fineRoutes from './routes/fine.routes.js';
+import libraryWorkflowRoutes from './routes/library-workflow.routes.js';
 
-// Security Middlewares
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { auditLogInterceptor } from './middlewares/auditLogger.js';
 
@@ -35,11 +32,8 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGINS || '*' }));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(auditLogInterceptor);
-
-// Global Rate Limiting
 app.use(rateLimiter(200, 15 * 60 * 1000));
 
-// API Routes
 app.use('/api/v1/auth', rateLimiter(1000, 15 * 60 * 1000), authRoutes);
 app.use('/api/v1/loans', loanRoutes);
 app.use('/api/v1/books', bookRoutes);
@@ -54,16 +48,27 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/fines', fineRoutes);
-app.get('/health', (req, res) => {
+// Unified student-facing library workflows: policies, My Library, reservation queue and smart issue intake.
+app.use('/api/v1/library', libraryWorkflowRoutes);
+
+app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });
 });
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    name: 'KNUST Library API',
+    status: 'online',
+    version: '1.0.0',
+    health: '/health'
+  });
+});
+
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled Server Exception:', err.stack);
   res.status(500).json({ success: false, error: 'A server error occurred.' });
 });
 
-// Initialize background jobs
 initCronJobs();
 
 app.listen(PORT, () => {
