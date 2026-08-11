@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: npm ci --include=dev && npm run build
-    startCommand: npx prisma migrate deploy && npm start
+    startCommand: node scripts/baseline-existing-db.js && npx prisma migrate deploy && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
