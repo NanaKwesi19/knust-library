@@ -1,0 +1,561 @@
+datasource db {
+  provider = "postgresql"
+ 
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+enum Role {
+  STUDENT
+  LIBRARIAN
+  ADMIN
+  STAFF
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_CLEARANCE
+}
+
+enum CopyStatus {
+  AVAILABLE
+  BORROWED
+  MAINTENANCE
+  RESERVED
+  LOST
+}
+
+enum LoanStatus {
+  BORROWED
+  RETURNED
+  OVERDUE
+  RENEWED
+}
+
+enum ReservationType {
+  BOOK_HOLD
+  STUDY_SPACE
+  DISCUSSION_ROOM
+}
+
+enum ReservationStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+  EXPIRED
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum FineStatus {
+  UNPAID
+  PAID
+  WAIVED
+}
+
+enum NotificationType {
+  DUE_REMINDER
+  OVERDUE_ALERT
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  BOOK_AVAILABLE
+  FINE_ISSUED
+  FINE_PAID
+  GENERAL
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ==========================================
+// 1. CORE USER & ACCOUNT PRIVILEGES
+// ==========================================
+model User {
+  id        Int           @id @default(autoincrement())
+  userUuid  String        @default(uuid()) @map("user_uuid")
+  email     String        @unique
+  fullName  String
+  password  String
+  studentId String?       @unique
+  role      Role          @default(STUDENT)
+  status    AccountStatus @default(ACTIVE)
+  
+  programme     String?
+  department    String?
+  yearOfStudy   Int?
+  phone         String?
+  profileImage  String?
+  lastLoginAt   DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loans                 Loan[]
+  reservations          Reservation[]
+  payments              Payment[]
+  auditLogs             AuditLog[]
+  roomBookings          RoomBooking[]
+  notifications         Notification[]
+  readingHistory        ReadingHistory[]
+  exportLogs            ExportLog[]
+  notificationPrefs     NotificationPreference?
+  dashboardWidgets      DashboardWidget[]
+  
+  // Complaints submitted by this user (student)
+  submittedComplaints   MaintenanceComplaint[] @relation("ComplaintUser")
+  
+  // Complaints resolved by this user (admin/librarian)
+  resolvedComplaints    MaintenanceComplaint[] @relation("ComplaintResolver")
+
+  @@map("users")
+}
+// ==========================================
+// 2. RESOURCE CATALOG & BOOK INVENTORY
+// ==========================================
+model Book {
+  id            Int      @id @default(autoincrement())
+  title         String
+  author        String
+  isbn          String   @unique
+  category      String
+  shelfLocation String
+  description   String?
+  publisher     String?
+  publishYear   Int?
+  edition       String?
+  pages         Int?
+  coverImage    String?
+  tags          String[] @default([])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  copies BookCopy[]
+  openLibraryKey String? @unique
+  coverUrl       String?
+  
+  
+  @@map("books")
+}
+
+model BookCopy {
+  id        Int        @id @default(autoincrement())
+  barcode   String     @unique
+  status    CopyStatus @default(AVAILABLE)
+  condition String?    @default("GOOD")
+  bookId    Int
+  book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  loans Loan[]
+  
+  @@map("book_copies")
+}
+
+// ==========================================
+// 3. BORROWING & TRANSACTION OPERATIONS
+// ==========================================
+model Loan {
+  id            Int        @id @default(autoincrement())
+  loanUuid      String     @unique @default(uuid())
+  dueDate       DateTime
+  returnedAt    DateTime?
+  status        LoanStatus @default(BORROWED)
+  renewalCount  Int        @default(0)
+  
+  fineAmount    Float      @default(0)
+  finePaid      Boolean    @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User     @relation(fields: [userId], references: [id])
+  copyId Int
+  copy   BookCopy @relation(fields: [copyId], references: [id])
+  fines  Fine[]
+  
+  @@map("loans")
+}
+
+// ==========================================
+// 4. RESERVATIONS & HOLD QUEUES
+// ==========================================
+model Reservation {
+  id           Int               @id @default(autoincrement())
+  type         ReservationType
+  targetId     String
+  scheduledFor DateTime?
+  status       ReservationStatus @default(PENDING)
+  notes        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  
+  @@map("reservations")
+}
+
+// ==========================================
+// 5. STUDY ROOMS & BOOKINGS
+// ==========================================
+model StudyRoom {
+  id          Int     @id @default(autoincrement())
+  roomUuid    String  @unique @default(uuid())
+  roomNumber  String  @unique
+  capacity    Int
+  location    String?
+  description String?
+  amenities   String[] @default([])
+  isAvailable Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings RoomBooking[]
+  
+  @@map("study_rooms")
+}
+
+model RoomBooking {
+  id          Int           @id @default(autoincrement())
+  bookingUuid String        @unique @default(uuid())
+  bookingDate DateTime
+  startTime   DateTime
+  endTime     DateTime
+  status      BookingStatus @default(CONFIRMED)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User      @relation(fields: [userId], references: [id])
+  roomId Int
+  room   StudyRoom @relation(fields: [roomId], references: [id])
+  
+  @@map("room_bookings")
+}
+
+// ==========================================
+// 6. FINES & ACCOUNTS BALANCE
+// ==========================================
+model Fine {
+  id          Int        @id @default(autoincrement())
+  amount      Float
+  status      FineStatus @default(UNPAID)
+  reason      String     @default("OVERDUE")
+  description String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  loanId   Int
+  loan     Loan      @relation(fields: [loanId], references: [id])
+  payments Payment[]
+  
+  @@map("fines")
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  reference String   @unique @default(uuid())
+  amount    Float
+  method    String   @default("CASH")
+  status    String   @default("COMPLETED")
+  
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  fineId Int
+  fine   Fine @relation(fields: [fineId], references: [id])
+  
+  @@map("payments")
+}
+
+// ==========================================
+// 7. NOTIFICATIONS SYSTEM
+// ==========================================
+model Notification {
+  id        Int                  @id @default(autoincrement())
+  type      NotificationType     @default(GENERAL)
+  title     String
+  message   String
+  priority  NotificationPriority @default(NORMAL)
+  read      Boolean              @default(false)
+  actionUrl String?
+  
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id                Int     @id @default(autoincrement())
+  emailEnabled      Boolean @default(true)
+  smsEnabled        Boolean @default(false)
+  pushEnabled       Boolean @default(true)
+  dueReminderDays   Int     @default(3)
+  fineAlertThreshold Float  @default(5.00)
+  
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+  
+  @@map("notification_preferences")
+}
+
+// ==========================================
+// 8. READING HISTORY & ACTIVITY
+// ==========================================
+model ReadingHistory {
+  id             Int      @id @default(autoincrement())
+  action         String
+  resourceType   String
+  resourceId     String
+  resourceTitle  String
+  resourceAuthor String?
+  
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  
+  @@map("reading_history")
+}
+
+// ==========================================
+// 9. DIGITAL REPOSITORIES & REMOTE ACCESS
+// ==========================================
+model DigitalResource {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String?
+  accessUrl     String
+  fileType      String   @default("PDF")
+  category      String
+  subCategory   String?
+  academicYear  String?
+  courseCode    String?
+  author        String?
+  publisher     String?
+  requiresAuth  Boolean  @default(true)
+  downloadCount Int     @default(0)
+  fileSize      String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("digital_resources")
+}
+
+// ==========================================
+// 10. DIGITAL LIBRARY CARD
+// ==========================================
+model DigitalLibraryCard {
+  id         Int      @id @default(autoincrement())
+  cardUuid   String   @unique @default(uuid())
+  studentId  String   @unique
+  qrCodeData String
+  issueDate  DateTime @default(now())
+  expiryDate DateTime
+  status     String   @default("ACTIVE")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("digital_library_cards")
+}
+
+// ==========================================
+// 11. INCIDENT REPORTING & FACILITY ISSUES
+// ==========================================
+model HelpDeskTicket {
+  id          Int         @id @default(autoincrement())
+  subject     String
+  description String
+  status      IssueStatus @default(OPEN)
+  priority    String      @default("NORMAL")
+  category    String      @default("GENERAL")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("help_desk_tickets")
+}
+
+// ==========================================
+// 12. SECURITY LOGGER & ACTION AUDITS
+// ==========================================
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  action      String
+  description String
+  entityType  String?
+  entityId    String?
+  ipAddress   String?
+  details     Json?
+  severity    String?  @default("INFO")
+  userAgent   String?
+  createdAt DateTime @default(now())
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+  
+  @@map("audit_logs")
+}
+
+// ==========================================
+// 13. CONFIGURATION & INFRASTRUCTURE STATUS
+// ==========================================
+model SystemConfig {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique
+  value       String
+  description String?
+  
+  @@map("system_configs")
+}
+
+model BackupLog {
+  id         Int      @id @default(autoincrement())
+  fileName   String
+  fileSize   String
+  sizeBytes  Int?
+  status     String   @default("SUCCESS")
+  type       String   @default("MANUAL")
+  createdAt  DateTime @default(now())
+  
+  @@map("backup_logs")
+}
+
+model MaintenanceComplaint {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  roomNumber  String
+  status      String   @default("PENDING")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+
+  // Student who submitted
+  userId     Int
+  user       User   @relation("ComplaintUser", fields: [userId], references: [id])
+  
+  // Admin who resolved
+  resolvedById Int?
+  resolvedBy   User? @relation("ComplaintResolver", fields: [resolvedById], references: [id])
+  
+  @@map("maintenance_complaints")
+}
+// ==========================================
+// 14. EXPORT LOGS (NEW)
+// ==========================================
+model ExportLog {
+  id            Int      @id @default(autoincrement())
+  exportType    String
+  filtersApplied Json?
+  recordCount   Int?
+  fileSizeBytes Int?
+  status        String   @default("SUCCESS")
+  createdAt     DateTime @default(now())
+  
+  userId Int
+  user   User   @relation(fields: [userId], references: [id])
+  
+  @@map("export_logs")
+}
+
+// ==========================================
+// 15. DASHBOARD WIDGETS (NEW)
+// ==========================================
+model DashboardWidget {
+  id         Int     @id @default(autoincrement())
+  widgetType String
+  positionX  Int     @default(0)
+  positionY  Int     @default(0)
+  width      Int     @default(1)
+  height     Int     @default(1)
+  isVisible  Boolean @default(true)
+  createdAt  DateTime @default(now())
+  
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  
+  @@map("dashboard_widgets")
+}
+model LibrarySetting {
+  id                      Int      @id @default(autoincrement())
+  libraryName             String   @default("KNUST Library")
+  institution             String   @default("Kwame Nkrumah University of Science and Technology")
+  address                 String   @default("Kumasi, Ghana")
+  phone                   String   @default("+233 32 206 0000")
+  email                   String   @default("library@knust.edu.gh")
+  website                 String   @default("https://library.knust.edu.gh")
+  openingHours            Json     @default("{\"Monday\":{\"open\":\"08:00\",\"close\":\"17:00\",\"closed\":false},\"Tuesday\":{\"open\":\"08:00\",\"close\":\"17:00\",\"closed\":false},\"Wednesday\":{\"open\":\"08:00\",\"close\":\"17:00\",\"closed\":false},\"Thursday\":{\"open\":\"08:00\",\"close\":\"17:00\",\"closed\":false},\"Friday\":{\"open\":\"08:00\",\"close\":\"17:00\",\"closed\":false},\"Saturday\":{\"open\":\"09:00\",\"close\":\"14:00\",\"closed\":false},\"Sunday\":{\"open\":\"00:00\",\"close\":\"00:00\",\"closed\":true}}")
+  maxBooksPerStudent      Int      @default(5)
+  maxBooksPerStaff        Int      @default(10)
+  loanDurationDays        Int      @default(14)
+  renewalLimit            Int      @default(2)
+  fineRatePerDay          Float    @default(2.0)
+  maxFineAmount           Float    @default(50.0)
+  gracePeriodDays         Int      @default(3)
+  enableEmailNotifications Boolean @default(true)
+  enableSmsNotifications   Boolean @default(false)
+  maintenanceMode         Boolean  @default(false)
+  updatedAt               DateTime @updatedAt
+  
+  @@map("library_settings")
+}
+
+model BackupConfig {
+  id            Int      @id @default(autoincrement())
+  frequency     String   @default("DAILY")
+  time          String   @default("02:00")
+  retentionDays Int      @default(30)
+  lastBackup    DateTime?
+  nextBackup    DateTime?
+  autoBackup    Boolean  @default(true)
+  includeFiles  Boolean  @default(true)
+  
+  @@map("backup_configs")
+}
+
+model EmailTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String
+  subject   String
+  body      String
+  variables String[]
+  enabled   Boolean  @default(true)
+  
+  @@map("email_templates")
+}

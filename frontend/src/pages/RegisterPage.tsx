@@ -1,0 +1,469 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import API from "../services/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Lock, 
+  Mail, 
+  Eye, 
+  EyeOff, 
+  AlertTriangle, 
+  BookOpen, 
+  ShieldCheck, 
+  ArrowRight,
+  User,
+  GraduationCap,
+  Building2,
+  Sparkles,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
+
+export const RegisterPage: React.FC = () => {
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    studentId: "",
+    programme: "",
+    department: "",
+  });
+  
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const validateForm = (): boolean => {
+    if (!formData.fullName.trim() || !formData.email.trim() || !formData.password.trim() || !formData.studentId.trim()) {
+      setError("Full name, email, password, and student ID are all required.");
+      return false;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid institutional email address.");
+      return false;
+    }
+
+    // KNUST email domain check
+    const allowedDomains = ['@knust.edu.gh', '@st.knust.edu.gh', '@knust.edu'];
+    const hasAllowedDomain = allowedDomains.some(domain => 
+      formData.email.toLowerCase().endsWith(domain)
+    );
+    if (!hasAllowedDomain) {
+      setError("Only KNUST institutional emails are allowed. Use your @knust.edu.gh or @st.knust.edu.gh address.");
+      return false;
+    }
+
+    // Student ID must be exactly 8 digits
+    if (!/^\d{8}$/.test(formData.studentId)) {
+      setError("Student ID must be exactly 8 digits (e.g., 20234567).");
+      return false;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return false;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await API.post("/auth/register", {
+        fullName: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        studentId: formData.studentId,
+        programme: formData.programme || undefined,
+        department: formData.department || undefined,
+        role: "STUDENT"
+      });
+
+      setSuccess(true);
+    } catch (err: any) {
+      const backendError = err.response?.data?.error || "Registration failed. Please try again.";
+      setError(backendError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen w-full flex bg-slate-900 font-sans selection:bg-[#7A1C2C]/20 selection:text-[#7A1C2C] overflow-hidden antialiased">
+      
+      {/* Left Panel - Institutional Branding */}
+      <div className="hidden lg:flex lg:w-7/12 relative bg-gradient-to-br from-[#2D060D] via-[#140205] to-[#050001] flex-col justify-between p-20 overflow-hidden border-r border-white/[0.03]">
+        
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.015)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:40px_40px]" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_70%_0%,rgba(122,28,44,0.25)_0%,transparent_60%)] pointer-events-none mix-blend-screen" />
+        <div className="absolute -left-20 bottom-0 w-[500px] h-[500px] bg-[radial-gradient(circle_at_0%_100%,rgba(220,154,34,0.08)_0%,transparent_60%)] pointer-events-none" />
+
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 flex items-center gap-6"
+        >
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[#7A1C2C] to-[#4A0C16] flex items-center justify-center shadow-[0_12px_30px_rgba(0,0,0,0.6)] border border-white/10 ring-8 ring-white/[0.02]">
+            <BookOpen className="h-6 w-6 text-[#DC9A22]" />
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs font-black uppercase tracking-[0.3em] bg-gradient-to-r from-stone-200 via-stone-300 to-stone-400 bg-clip-text text-transparent block leading-none">Kwame Nkrumah University</span>
+            <span className="text-stone-500 text-[11px] font-bold tracking-widest uppercase block">Science & Technology • Library Services</span>
+          </div>
+        </motion.div>
+
+        <div className="relative z-10 my-auto max-w-xl pl-8 border-l border-white/10">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-10"
+          >
+            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.08] backdrop-blur-md">
+              <ShieldCheck className="w-4 h-4 text-[#DC9A22]" />
+              <span className="text-stone-300 text-[10px] font-bold tracking-widest uppercase">Secure Registration Portal</span>
+            </div>
+            
+            <div className="space-y-5">
+              <h1 className="text-4xl xl:text-5xl font-black tracking-tight text-white leading-[1.15]">
+                Join the <br />
+                <span className="bg-gradient-to-r from-[#DC9A22] via-amber-300 to-amber-100 bg-clip-text text-transparent">
+                  Library Network
+                </span>
+              </h1>
+              <p className="text-sm xl:text-base text-stone-400 leading-relaxed font-medium max-w-md">
+                Create your student account to access the full KNUST Library ecosystem. All registrations are verified by library staff within 24 hours.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <div className="flex items-center gap-2 text-[10px] text-stone-400 font-bold uppercase tracking-wider">
+                <Clock className="w-3 h-3 text-amber-400" />
+                Approval Process
+              </div>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                1. Submit your details with valid 8-digit KNUST Student ID<br/>
+                2. Library staff verifies your enrollment status<br/>
+                3. Receive email confirmation within 24 hours<br/>
+                4. Log in and access all library services
+              </p>
+            </div>
+          </motion.div>
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="relative z-10 flex items-center justify-between border-t border-white/[0.04] pt-8 text-[11px] font-bold tracking-wider text-stone-500 uppercase"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500/40 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>Registration Open</span>
+          </div>
+          <div className="flex items-center gap-6 font-mono text-[10px] tracking-normal text-stone-600">
+            <span>Library Services v4.8.2</span>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Right Panel - Registration Form */}
+      <div className="w-full lg:w-5/12 flex items-center justify-center p-6 sm:p-12 md:p-16 relative bg-white overflow-y-auto">
+        
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#F1F5F9_1px,transparent_1px),linear-gradient(to_bottom,#F1F5F9_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(#E2E8F0_1.5px,transparent_1.5px)] [background-size:16px_16px] pointer-events-none" />
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.98, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full max-w-md relative py-4"
+        >
+          <div className="absolute inset-0 bg-slate-100/40 border border-slate-200/30 rounded-3xl translate-y-4 scale-[0.95] blur-[1px] pointer-events-none" />
+          <div className="absolute inset-0 bg-slate-50/70 border border-slate-200/60 rounded-3xl translate-y-2 scale-[0.975] pointer-events-none" />
+
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-8 sm:p-10 shadow-[0_25px_60px_rgba(15,23,42,0.03)] relative overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-[#7A1C2C] via-[#DC9A22] to-[#7A1C2C]" />
+
+            {/* Header */}
+            <div className="mb-6 space-y-2">
+              <div className="inline-flex items-center gap-2 text-[10px] font-bold text-[#7A1C2C] uppercase tracking-widest bg-[#7A1C2C]/5 px-2.5 py-1 rounded-md border border-[#7A1C2C]/10">
+                <Sparkles className="w-3 h-3 text-[#DC9A22]" />
+                <span>New Student</span>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                Create Account
+              </h2>
+              <p className="text-xs font-semibold text-slate-400 leading-relaxed">
+                Register with your KNUST institutional email and  student ID.
+              </p>
+            </div>
+
+            {/* Success State */}
+            <AnimatePresence>
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 bg-emerald-50 border border-emerald-200 p-5 rounded-2xl space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    <span className="text-sm font-bold text-emerald-800">Account Submitted</span>
+                  </div>
+                  <p className="text-xs text-emerald-700 leading-relaxed">
+                    Your account has been created and is pending approval from library staff. 
+                    You will be able to log in once approved.
+                  </p>
+                  <div className="pt-2 border-t border-emerald-200/60">
+                    <button
+                      onClick={() => navigate('/login')}
+                      className="text-xs font-bold text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
+                    >
+                      Go to Login <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Error */}
+            <AnimatePresence mode="wait">
+              {error && !success && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0, x: [0, -4, 4, -4, 4, 0] }}
+                  exit={{ opacity: 0 }}
+                  className="mb-6 bg-rose-50 border border-rose-100 p-4 rounded-2xl flex items-start gap-3.5"
+                >
+                  <div className="h-6 w-6 rounded-lg bg-rose-100 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                  </div>
+                  <div className="text-xs text-rose-800 font-bold leading-relaxed pt-0.5">{error}</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Form */}
+            {!success && (
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                
+                {/* Student ID */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    Student ID <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      name="studentId"
+                      type="text"
+                      required
+                      value={formData.studentId}
+                      onChange={handleChange}
+                      placeholder="20234567"
+                      pattern="\d{8}"
+                      maxLength={8}
+                      title="Student ID must be exactly 8 digits"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-sm font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 pl-1">Exactly 8 digits, e.g., 20234567</p>
+                </div>
+
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      name="fullName"
+                      type="text"
+                      required
+                      value={formData.fullName}
+                      onChange={handleChange}
+                      placeholder="Kingsley Frimpong"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-sm font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    Institutional Email <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="username@knust.edu.gh"
+                      className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-sm font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-400 pl-1">Must be @knust.edu.gh or @st.knust.edu.gh</p>
+                </div>
+
+                {/* Programme & Department */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                      Programme
+                    </label>
+                    <input
+                      name="programme"
+                      type="text"
+                      value={formData.programme}
+                      onChange={handleChange}
+                      placeholder="BSc Computer Eng."
+                      className="block w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-xs font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                      Department
+                    </label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        name="department"
+                        type="text"
+                        value={formData.department}
+                        onChange={handleChange}
+                        placeholder="Computer Eng."
+                        className="block w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-xs font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    Password <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="••••••••••••"
+                      className="block w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-sm font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider pl-0.5">
+                    Confirm Password <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      name="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="••••••••••••"
+                      className="block w-full pl-10 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-2xl placeholder-slate-400 text-slate-800 text-sm font-semibold outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <div className="pt-2">
+                  <motion.button
+                    whileHover={!isSubmitting ? { scale: 1.01 } : {}}
+                    whileTap={!isSubmitting ? { scale: 0.99 } : {}}
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full flex justify-center items-center py-3.5 px-5 bg-gradient-to-r from-[#7A1C2C] to-[#631422] text-white text-sm font-bold rounded-2xl shadow-xl shadow-[#7A1C2C]/10 border border-[#7A1C2C]/10 focus:outline-none focus:ring-4 focus:ring-[#7A1C2C]/20 transition-all disabled:from-slate-100 disabled:to-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:shadow-none group"
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center gap-3">
+                        <div className="h-4 w-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                        <span className="font-bold text-slate-400 tracking-wide">Creating account...</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2.5 tracking-wide font-extrabold">
+                        Submit for Approval
+                        <ArrowRight className="h-4 w-4 text-[#DC9A22] transition-transform group-hover:translate-x-0.5" />
+                      </span>
+                    )}
+                  </motion.button>
+                </div>
+
+              </form>
+            )}
+
+            {/* Login Link */}
+            <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+              <p className="text-xs text-slate-500 font-medium">
+                Already have an account?{' '}
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="text-[#7A1C2C] font-bold hover:underline underline-offset-4"
+                >
+                  Sign in here
+                </button>
+              </p>
+            </div>
+
+          </div>
+        </motion.div>
+      </div>
+
+    </div>
+  );
+};

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  /* Custom enterprise brand palette configured natively in CSS variables */
+  --color-brand-gold: #DBA11C;
+  --color-brand-maroon: #6A1B29;
+  --color-brand-dark: #111827;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #f9fafb;
+  color: var(--color-brand-dark);
+}

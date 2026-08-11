@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler resolution config to fix relative path extension errors */
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    
+    /* Native React parsing config to fix JSX errors */
+    "jsx": "react-jsx",
+
+    /* Strict type checking and ESM enforcement */
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true
+  },
+  "include": ["src/**/*"]
+}
