@@ -4,7 +4,7 @@ import API from '../../../services/api';
 import {
   AlertCircle, BookOpen, CalendarDays, CheckCircle2, ChevronRight, Clock,
   CreditCard, FileText, HelpCircle, Library, MessageSquare, Search,
-  Sparkles, UserRound, Wrench,
+  Sparkles, UserRound, Wrench, Pencil, Trash2,
 } from 'lucide-react';
 
 interface Ticket {
@@ -64,24 +64,44 @@ export default function LibraryHelpDesk() {
   });
 
   const analyseMutation = useMutation({
-    mutationFn: async () => (await API.post('/library/issues/analyse', { description })).data,
+    mutationFn: async () => (await API.post('/library/issues/analyse', { description: description.trim() })).data,
     onSuccess: (response) => {
-      // API responses may arrive either as the Axios response body
-      // ({ success, data }) or directly as the data payload. Normalize both
-      // shapes so analysis never clears/breaks the intake screen.
       const payload = response?.data ?? response;
-      const result: AnalysisResult = {
+      setAnalysis({
         extracted: payload?.extracted ?? {},
         candidates: Array.isArray(payload?.candidates) ? payload.candidates : [],
-      };
-      setAnalysis(result);
+      });
+      setSelectedRecord(null);
+    },
+    onError: (error) => {
+      // Never remove the intake screen when analysis fails. Show a safe local
+      // fallback so the student can still review and submit the report.
+      console.error('Library issue analysis failed:', error);
+      const lower = description.toLowerCase();
+      const category = /borrow|loan|due|return|renew|overdue/.test(lower)
+        ? 'BORROWING'
+        : /reserv|hold|queue|pickup/.test(lower)
+          ? 'RESERVATION'
+          : /login|password|account|email|student id|profile/.test(lower)
+            ? 'ACCOUNT'
+            : /database|website|portal|page|error|not working|system/.test(lower)
+              ? 'SYSTEM'
+              : /book|copy|barcode|shelf|catalog|catalogue/.test(lower)
+                ? 'CATALOGUE'
+                : 'GENERAL';
+      const priority = /urgent|emergency|cannot access|blocked|deadline|exam/.test(lower)
+        ? 'HIGH'
+        : /not working|missing|wrong|incorrect|problem|issue/.test(lower)
+          ? 'NORMAL'
+          : 'LOW';
+      setAnalysis({ extracted: { category, priority }, candidates: [] });
       setSelectedRecord(null);
     },
   });
 
   const submitMutation = useMutation({
     mutationFn: async () => (await API.post('/library/issues/submit', {
-      description,
+      description: description.trim(),
       category: analysis?.extracted?.category || 'GENERAL',
       priority: analysis?.extracted?.priority || 'NORMAL',
       relatedRecord: selectedRecord,
@@ -95,6 +115,17 @@ export default function LibraryHelpDesk() {
       queryClient.invalidateQueries({ queryKey: ['libraryIssues'] });
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async ({ id, description: nextDescription }: { id: number; description: string }) =>
+      (await API.patch(`/library/issues/my/${id}`, { description: nextDescription })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['libraryIssues'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => (await API.delete(`/library/issues/my/${id}`)).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['libraryIssues'] }),
   });
 
   const tickets: Ticket[] = data?.data || [];
@@ -130,6 +161,24 @@ export default function LibraryHelpDesk() {
     if (record.type === 'RESERVATION') return 'Reservation';
     if (record.type === 'BOOK') return 'Catalog book';
     return 'Library record';
+  };
+
+  const editTicket = (ticket: Ticket) => {
+    if (ticket.status !== 'PENDING') return;
+    const original = ticket.description.split('\n\n--- Smart Intake ---')[0].trim();
+    const next = window.prompt('Edit your issue description:', original);
+    if (next === null) return;
+    if (next.trim().length < 10) {
+      window.alert('Please keep the description at least 10 characters long.');
+      return;
+    }
+    editMutation.mutate({ id: ticket.id, description: next.trim() });
+  };
+
+  const deleteTicket = (ticket: Ticket) => {
+    if (ticket.status !== 'PENDING') return;
+    if (!window.confirm('Delete this pending library issue? This cannot be undone.')) return;
+    deleteMutation.mutate(ticket.id);
   };
 
   return (
@@ -180,7 +229,7 @@ export default function LibraryHelpDesk() {
                 <form onSubmit={(e) => { e.preventDefault(); analyseMutation.mutate(); }} className="space-y-4">
                   <div className="relative"><FileText className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" /><textarea value={description} onChange={(e) => setDescription(e.target.value)} required minLength={10} rows={7} placeholder="Example: I returned Introduction to Algorithms yesterday but my account still shows it as borrowed and I'm worried about getting a fine." className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:bg-white focus:border-[#7A1C2C] focus:ring-4 focus:ring-[#7A1C2C]/5 text-sm text-slate-700 resize-none leading-relaxed" /></div>
                   <div className="flex items-center justify-between gap-3"><p className="text-[10px] text-slate-400">Minimum 10 characters. The first step analyses your description only; it does not submit an issue.</p><button type="submit" disabled={analyseMutation.isPending || description.trim().length < 10} className="shrink-0 inline-flex items-center gap-2 bg-[#7A1C2C] hover:bg-[#631422] text-white font-bold px-5 py-3 rounded-xl disabled:opacity-40 transition-colors"><Sparkles className="w-4 h-4 text-amber-300" />{analyseMutation.isPending ? 'Analysing...' : 'Analyse Problem'}</button></div>
-                  {analyseMutation.isError && <p className="text-xs text-rose-600">{(analyseMutation.error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Could not analyse the issue.'}</p>}
+                  {analyseMutation.isError && <p className="text-xs text-amber-700">We could not reach the analysis service, so we prepared a basic review from your description. You can still review and submit it.</p>}
                 </form>
               ) : (
                 <div className="space-y-5">
@@ -202,7 +251,7 @@ export default function LibraryHelpDesk() {
       ) : (
         <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100"><div className="flex items-center justify-between"><div><h3 className="text-sm font-black text-slate-900">My Reported Issues</h3><p className="text-xs text-slate-500 mt-1">Track the library issues you have submitted.</p></div><button onClick={() => startIssue()} className="text-xs font-bold text-[#7A1C2C] hover:underline">Report another issue</button></div><div className="grid grid-cols-4 gap-2 mt-5"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[10px] text-slate-400">All</p><p className="text-lg font-black">{counts.all}</p></div><div className="rounded-xl bg-amber-50 p-3"><p className="text-[10px] text-amber-600">Pending</p><p className="text-lg font-black text-amber-800">{counts.pending}</p></div><div className="rounded-xl bg-blue-50 p-3"><p className="text-[10px] text-blue-600">In progress</p><p className="text-lg font-black text-blue-800">{counts.progress}</p></div><div className="rounded-xl bg-emerald-50 p-3"><p className="text-[10px] text-emerald-600">Resolved</p><p className="text-lg font-black text-emerald-800">{counts.resolved}</p></div></div></div>
-          {isLoading ? <div className="py-14 text-center text-xs text-slate-400">Loading issue history...</div> : tickets.length === 0 ? <div className="py-14 text-center"><ClipboardEmpty /><p className="mt-3 text-sm font-bold text-slate-700">No issues reported yet</p><p className="mt-1 text-xs text-slate-400">If something goes wrong, describe it and we'll help route it.</p><button onClick={() => startIssue()} className="mt-4 rounded-xl bg-[#7A1C2C] px-4 py-2.5 text-xs font-bold text-white">Report a Library Issue</button></div> : <div className="divide-y divide-slate-100">{tickets.map(ticket => { const cfg = statusConfig(ticket.status); return <div key={ticket.id} className="p-5 hover:bg-slate-50/70 transition-colors"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><h4 className="text-sm font-bold text-slate-900 truncate">{ticket.title}</h4><p className="text-[10px] text-slate-400 mt-1">Issue #{ticket.id} · {new Date(ticket.createdAt).toLocaleString()}</p></div><span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase ${cfg.cls}`}>{cfg.icon}{cfg.label}</span></div><p className="text-xs text-slate-500 mt-3 leading-5">{ticket.description}</p></div>; })}</div>}
+          {isLoading ? <div className="py-14 text-center text-xs text-slate-400">Loading issue history...</div> : tickets.length === 0 ? <div className="py-14 text-center"><ClipboardEmpty /><p className="mt-3 text-sm font-bold text-slate-700">No issues reported yet</p><p className="mt-1 text-xs text-slate-400">If something goes wrong, describe it and we'll help route it.</p><button onClick={() => startIssue()} className="mt-4 rounded-xl bg-[#7A1C2C] px-4 py-2.5 text-xs font-bold text-white">Report a Library Issue</button></div> : <div className="divide-y divide-slate-100">{tickets.map(ticket => { const cfg = statusConfig(ticket.status); const editable = ticket.status === 'PENDING'; return <div key={ticket.id} className="p-5 hover:bg-slate-50/70 transition-colors"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><h4 className="text-sm font-bold text-slate-900 truncate">{ticket.title}</h4><p className="text-[10px] text-slate-400 mt-1">Issue #{ticket.id} · {new Date(ticket.createdAt).toLocaleString()}</p></div><div className="flex items-center gap-2 shrink-0"><span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-bold uppercase ${cfg.cls}`}>{cfg.icon}{cfg.label}</span>{editable && <><button type="button" onClick={() => editTicket(ticket)} disabled={editMutation.isPending} title="Edit issue" className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-[#7A1C2C] hover:border-[#7A1C2C]/30 disabled:opacity-40"><Pencil className="w-3.5 h-3.5" /></button><button type="button" onClick={() => deleteTicket(ticket)} disabled={deleteMutation.isPending} title="Delete issue" className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 disabled:opacity-40"><Trash2 className="w-3.5 h-3.5" /></button></>}</div></div><p className="text-xs text-slate-500 mt-3 leading-5 whitespace-pre-wrap">{ticket.description.split('\n\n--- Smart Intake ---')[0]}</p>{editable && <p className="mt-2 text-[10px] text-slate-400">You can edit or delete this report until library staff begin reviewing it.</p>}</div>; })}</div>}
         </section>
       )}
     </div>
