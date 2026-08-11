@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "prisma generate && tsc",
-    "start": "node scripts/baseline-existing-db.js && npx prisma migrate deploy && node dist/index.js",
+    "start": "node scripts/baseline-existing-db.js && npx prisma migrate deploy && npx prisma db seed && node dist/index.js",
     "dev": "nodemon --exec npx tsx src/index.ts",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
