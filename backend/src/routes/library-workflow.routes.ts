@@ -5,14 +5,25 @@ import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 router.use(protect);
-const activeLoanStatuses = [LoanStatus.BORROWED, LoanStatus.RENEWED];
+type ActiveLoanStatus = LoanStatus.BORROWED | LoanStatus.RENEWED;
+const activeLoanStatuses: ActiveLoanStatus[] = [LoanStatus.BORROWED, LoanStatus.RENEWED];
 
 async function getSettings() {
   const settings = await prisma.librarySetting.findFirst();
-  return settings ?? {
-    maxBooksPerStudent: 5, maxBooksPerStaff: 10, loanDurationDays: 14, renewalLimit: 1,
-    fineRatePerDay: 2, maxFineAmount: 50, lostBookDaysThreshold: 90, lostBookFee: 150,
-    gracePeriodDays: 3, libraryName: 'KNUST Library', institution: 'Kwame Nkrumah University of Science and Technology', openingHours: {}
+  if (settings) return settings;
+  return {
+    maxBooksPerStudent: 5,
+    maxBooksPerStaff: 10,
+    loanDurationDays: 14,
+    renewalLimit: 1,
+    fineRatePerDay: 2,
+    maxFineAmount: 50,
+    lostBookDaysThreshold: 90,
+    lostBookFee: 150,
+    gracePeriodDays: 3,
+    libraryName: 'KNUST Library',
+    institution: 'Kwame Nkrumah University of Science and Technology',
+    openingHours: {}
   };
 }
 
@@ -57,7 +68,7 @@ router.post('/loans/:loanUuid/renew', async (req: Request, res: Response): Promi
     const settings = await getSettings();
     const loan = await prisma.loan.findFirst({ where: { loanUuid, userId: req.user!.id }, include: { copy: { include: { book: true } } } });
     if (!loan) { res.status(404).json({ success: false, error: 'Loan record not found.' }); return; }
-    if (!activeLoanStatuses.includes(loan.status)) { res.status(400).json({ success: false, error: 'Only active loans can be renewed.' }); return; }
+    if (!activeLoanStatuses.includes(loan.status as ActiveLoanStatus)) { res.status(400).json({ success: false, error: 'Only active loans can be renewed.' }); return; }
     if (loan.renewalCount >= settings.renewalLimit) { res.status(400).json({ success: false, error: `Maximum renewals (${settings.renewalLimit}) reached.` }); return; }
     const pendingHold = await prisma.reservation.findFirst({ where: { type: 'BOOK_HOLD', targetId: String(loan.copy.bookId), status: ReservationStatus.PENDING, userId: { not: req.user!.id } } });
     if (pendingHold) { res.status(409).json({ success: false, error: 'This book has a waiting list, so it cannot be renewed.' }); return; }
