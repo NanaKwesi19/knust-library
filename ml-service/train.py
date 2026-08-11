@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import psycopg2
+import psycopg
 import os
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
@@ -16,7 +16,7 @@ def fetch_and_train():
     # Example URL fallback if variable is not mapped: "postgresql://user:pass@localhost:5432/db"
     db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/knust_library")
     
-    conn = psycopg2.connect(db_url)
+    conn = psycopg.connect(db_url)
     
     query = """
         SELECT 

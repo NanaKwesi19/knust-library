@@ -27,4 +27,22 @@ API.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// Handle systemic 401 Unauthorized errors across the frontend
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.warn('Session expired or unauthorized. Redirecting to login.');
+      localStorage.removeItem('knust_lib_token');
+      localStorage.removeItem('knust_lib_user');
+      
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default API;

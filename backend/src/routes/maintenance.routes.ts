@@ -291,4 +291,76 @@ router.get('/system-status', async (req: Request, res: Response): Promise<void> 
   }
 });
 
+/**
+ * PUT: /api/v1/maintenance/:id
+ * Update complaint details
+ */
+router.put('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(rawId as string, 10);
+    const { title, description, roomNumber } = req.body;
+
+    const existing = await prisma.maintenanceComplaint.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Complaint not found.' });
+      return;
+    }
+
+    const updated = await prisma.maintenanceComplaint.update({
+      where: { id },
+      data: { title, description, roomNumber },
+      include: {
+        user: { select: { id: true, fullName: true, email: true } },
+        resolvedBy: { select: { fullName: true } }
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_COMPLAINT',
+        description: `Updated complaint #${id}`,
+        userId: req.user!.id
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Complaint updated.', data: updated });
+  } catch (error) {
+    console.error('Complaint update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update complaint.' });
+  }
+});
+
+/**
+ * DELETE: /api/v1/maintenance/:id
+ * Delete a complaint
+ */
+router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(rawId as string, 10);
+
+    const existing = await prisma.maintenanceComplaint.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Complaint not found.' });
+      return;
+    }
+
+    await prisma.maintenanceComplaint.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'DELETE_COMPLAINT',
+        description: `Deleted complaint #${id}`,
+        userId: req.user!.id
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Complaint deleted successfully.' });
+  } catch (error) {
+    console.error('Complaint delete error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete complaint.' });
+  }
+});
+
 export default router;
