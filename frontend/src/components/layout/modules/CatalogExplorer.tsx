@@ -22,6 +22,8 @@ interface Book {
   publisher?: string;
   publishYear?: number;
   shelfLocation: string;
+  coverImage?: string;
+  coverUrl?: string;
   totalCopies: number;
   availableCopies: number;
   copies: BookCopy[];
@@ -124,7 +126,17 @@ export default function CatalogExplorer() {
       <div className="grid grid-cols-1 gap-6">
         {books.map((book) => (
           <div key={book.id} className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+              <div className="flex flex-col md:flex-row gap-5 flex-1">
+                <div className="shrink-0">
+                  {book.coverImage || book.coverUrl ? (
+                    <img src={book.coverImage || book.coverUrl} alt={book.title} className="w-24 h-36 object-cover rounded-lg shadow-sm border border-slate-200" />
+                  ) : (
+                    <div className="w-24 h-36 bg-slate-100 rounded-lg shadow-sm border border-slate-200 flex items-center justify-center">
+                      <BookOpen className="w-8 h-8 text-slate-300" />
+                    </div>
+                  )}
+                </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="inline-block px-2 py-0.5 bg-amber-100 border border-amber-200 rounded text-[10px] font-bold text-amber-800 uppercase tracking-wide">
@@ -148,6 +160,8 @@ export default function CatalogExplorer() {
                 {book.publisher && (
                   <p className="text-[10px] text-slate-400">Publisher: {book.publisher} {book.publishYear && `(${book.publishYear})`}</p>
                 )}
+              </div>
+              </div>
               </div>
               <div className="text-xs font-mono bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-500">
                 Shelf: {book.shelfLocation}

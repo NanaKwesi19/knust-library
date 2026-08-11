@@ -100,7 +100,7 @@ export default function ReservationManagement() {
 
   const cancelMutation = useMutation({
     mutationFn: async (reservationId: number) => {
-      const res = await API.patch(`/rooms/reservations/${reservationId}/cancel`);
+      const res = await API.patch(`/reservations/${reservationId}/status`, { status: 'CANCELLED' });
       return res.data;
     },
     onSuccess: () => {
@@ -116,7 +116,7 @@ export default function ReservationManagement() {
 
   const fulfillMutation = useMutation({
     mutationFn: async (reservationId: number) => {
-      const res = await API.patch(`/rooms/reservations/${reservationId}/fulfill`);
+      const res = await API.patch(`/reservations/${reservationId}/status`, { status: 'FULFILLED' });
       return res.data;
     },
     onSuccess: () => {

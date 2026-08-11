@@ -586,6 +586,7 @@ router.post('/import-open-library', async (req: Request, res: Response): Promise
         isbn: isbn || null,
         publishYear: publishedYear || null,
         coverUrl: coverUrl || null,
+        coverImage: coverUrl || null,
         openLibraryKey: openLibraryKey || null,
         category: 'Uncategorized',
         publisher: null,
