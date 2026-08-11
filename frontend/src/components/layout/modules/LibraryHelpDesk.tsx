@@ -66,7 +66,14 @@ export default function LibraryHelpDesk() {
   const analyseMutation = useMutation({
     mutationFn: async () => (await API.post('/library/issues/analyse', { description })).data,
     onSuccess: (response) => {
-      const result: AnalysisResult = response.data || {};
+      // API responses may arrive either as the Axios response body
+      // ({ success, data }) or directly as the data payload. Normalize both
+      // shapes so analysis never clears/breaks the intake screen.
+      const payload = response?.data ?? response;
+      const result: AnalysisResult = {
+        extracted: payload?.extracted ?? {},
+        candidates: Array.isArray(payload?.candidates) ? payload.candidates : [],
+      };
       setAnalysis(result);
       setSelectedRecord(null);
     },
