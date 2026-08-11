@@ -557,7 +557,7 @@ router.post('/import-csv', async (req: Request, res: Response): Promise<void> =>
  */
 router.post('/import-open-library', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { title, author, isbn, publishedYear, coverUrl, openLibraryKey } = req.body;
+    const { title, author, isbn, publishedYear, coverUrl, openLibraryKey, genre } = req.body;
 
     if (!title || !author) {
       res.status(400).json({ success: false, error: 'Title and author are required.' });
@@ -579,18 +579,26 @@ router.post('/import-open-library', async (req: Request, res: Response): Promise
       return;
     }
 
+    const fallbackIsbn = isbn || `OL-${openLibraryKey || Date.now()}`;
     const book = await prisma.book.create({
       data: {
         title,
         author,
-        isbn: isbn || null,
+        isbn: fallbackIsbn,
         publishYear: publishedYear || null,
         coverUrl: coverUrl || null,
         coverImage: coverUrl || null,
         openLibraryKey: openLibraryKey || null,
-        category: 'Uncategorized',
+        category: genre || 'Uncategorized',
         publisher: null,
-        shelfLocation: 'Unknown',
+        shelfLocation: 'New Arrivals',
+        copies: {
+          create: [
+            { barcode: `LIB-${Date.now().toString().slice(-6)}-1` },
+            { barcode: `LIB-${Date.now().toString().slice(-6)}-2` },
+            { barcode: `LIB-${Date.now().toString().slice(-6)}-3` }
+          ]
+        }
       },
     });
 

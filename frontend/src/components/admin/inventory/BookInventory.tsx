@@ -229,12 +229,16 @@ export default function BookInventory() {
       header: 'Book',
       cell: (row: BookRecord) => (
         <div className="flex items-center gap-3">
-          <div className="h-10 w-8 rounded bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-            <BookOpen className="w-4 h-4 text-slate-400" />
-          </div>
+          {row.coverImage || row.coverUrl ? (
+            <img src={row.coverImage || row.coverUrl} alt={row.title} className="h-12 w-8 object-cover rounded shadow-sm border border-slate-200 shrink-0" />
+          ) : (
+            <div className="h-12 w-8 rounded bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 text-slate-400" />
+            </div>
+          )}
           <div className="min-w-0">
-            <div className="font-bold text-slate-900 text-xs truncate">{row.title}</div>
-            <div className="text-[11px] text-slate-400 truncate">{row.author}</div>
+            <div className="font-bold text-slate-900 text-xs truncate max-w-[200px]" title={row.title}>{row.title}</div>
+            <div className="text-[11px] text-slate-400 truncate max-w-[200px]">{row.author}</div>
           </div>
         </div>
       ),
