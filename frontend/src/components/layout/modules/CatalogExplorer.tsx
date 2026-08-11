@@ -160,16 +160,14 @@ export default function CatalogExplorer() {
                 <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
                   Copies ({book.totalCopies} total)
                 </h4>
-                {book.availableCopies === 0 && (
-                  <button
-                    onClick={() => reserveMutation.mutate(book.id)}
-                    disabled={reserveMutation.isPending}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    {reserveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bookmark className="w-3 h-3" />}
-                    Reserve Book
-                  </button>
-                )}
+                <button
+                  onClick={() => reserveMutation.mutate(book.id)}
+                  disabled={reserveMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#800020] hover:bg-[#66001a] text-white text-[10px] font-bold rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+                >
+                  {reserveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Bookmark className="w-3 h-3" />}
+                  Request to Borrow
+                </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {book.copies?.map((copy) => (
