@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { StaffRegisterPage } from '../pages/StaffRegisterPage';
-import StudentPortal from '../pages/StudentPortal';
+import { StudentCommandCenter } from '../pages/StudentCommandCenter';
 import { AdminCommandCenter } from '../pages/AdminCommandCenter';
 
 export const AppRouter: React.FC = () => {
@@ -18,7 +18,7 @@ export const AppRouter: React.FC = () => {
     <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
     <Route path="/staff-register" element={isAuthenticated ? <Navigate to="/" replace /> : <StaffRegisterPage />} />
-    <Route path="/" element={isAuthenticated ? (user?.role === 'ADMIN' ? <AdminCommandCenter /> : <StudentPortal />) : <Navigate to="/login" replace />} />
+    <Route path="/" element={isAuthenticated ? (user?.role === 'ADMIN' ? <AdminCommandCenter /> : <StudentCommandCenter />) : <Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
   </Routes>;
 };
