@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { NotificationPriority, NotificationType, ReservationStatus, Role, LoanStatus } from '@prisma/client';
+import { NotificationPriority, NotificationType, ReservationStatus, Role } from '@prisma/client';
+import type { LoanStatus } from '@prisma/client';
 import { protect, restrictTo } from '../middlewares/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 router.use(protect);
-type ActiveLoanStatus = LoanStatus.BORROWED | LoanStatus.RENEWED;
-const activeLoanStatuses: ActiveLoanStatus[] = [LoanStatus.BORROWED, LoanStatus.RENEWED];
+type ActiveLoanStatus = 'BORROWED' | 'RENEWED';
+const activeLoanStatuses: ActiveLoanStatus[] = ['BORROWED', 'RENEWED'];
 
 async function getSettings() {
   const settings = await prisma.librarySetting.findFirst();
@@ -44,7 +45,7 @@ router.get('/my-library', async (req: Request, res: Response): Promise<void> => 
     const userId = req.user!.id;
     const [settings, loans, reservations, fines] = await Promise.all([
       getSettings(),
-      prisma.loan.findMany({ where: { userId, status: { in: activeLoanStatuses } }, include: { copy: { include: { book: true } } }, orderBy: { dueDate: 'asc' } }),
+      prisma.loan.findMany({ where: { userId, status: { in: activeLoanStatuses as LoanStatus[] } }, include: { copy: { include: { book: true } } }, orderBy: { dueDate: 'asc' } }),
       prisma.reservation.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
       prisma.fine.findMany({ where: { loan: { userId } }, include: { loan: { include: { copy: { include: { book: true } } } } }, orderBy: { createdAt: 'desc' } })
     ]);
@@ -75,7 +76,7 @@ router.post('/loans/:loanUuid/renew', async (req: Request, res: Response): Promi
     const newDueDate = new Date(loan.dueDate);
     newDueDate.setDate(newDueDate.getDate() + settings.loanDurationDays);
     const updated = await prisma.$transaction(async tx => {
-      const renewed = await tx.loan.update({ where: { id: loan.id }, data: { dueDate: newDueDate, renewalCount: { increment: 1 }, status: LoanStatus.RENEWED } });
+      const renewed = await tx.loan.update({ where: { id: loan.id }, data: { dueDate: newDueDate, renewalCount: { increment: 1 }, status: 'RENEWED' } });
       await tx.auditLog.create({ data: { action: 'BOOK_RENEWED', description: `Student renewed "${loan.copy.book.title}". New due date: ${newDueDate.toISOString()}`, userId: req.user!.id } });
       return renewed;
     });
@@ -90,7 +91,7 @@ router.post('/reservations/book', async (req: Request, res: Response): Promise<v
     const [book, existing, activeLoan] = await Promise.all([
       prisma.book.findUnique({ where: { id: bookId }, include: { copies: true } }),
       prisma.reservation.findFirst({ where: { userId, type: 'BOOK_HOLD', targetId: String(bookId), status: ReservationStatus.PENDING } }),
-      prisma.loan.findFirst({ where: { userId, copy: { bookId }, status: { in: activeLoanStatuses } } })
+      prisma.loan.findFirst({ where: { userId, copy: { bookId }, status: { in: activeLoanStatuses as LoanStatus[] } } })
     ]);
     if (!book) { res.status(404).json({ success: false, error: 'Book not found.' }); return; }
     if (book.copies.some(copy => copy.status === 'AVAILABLE')) { res.status(409).json({ success: false, error: 'This book currently has an available copy. Borrow it instead of reserving it.' }); return; }
@@ -131,7 +132,7 @@ router.post('/issues/intake', async (req: Request, res: Response): Promise<void>
     const priority = lower.match(/urgent|emergency|cannot access|blocked|deadline|exam/) ? 'HIGH' : lower.match(/not working|missing|wrong|incorrect|problem|issue/) ? 'NORMAL' : 'LOW';
     const [book, loan, reservation] = await Promise.all([
       prisma.book.findFirst({ where: { OR: [{ title: { contains: description, mode: 'insensitive' } }, { isbn: { contains: description, mode: 'insensitive' } }] } }),
-      prisma.loan.findFirst({ where: { userId, status: { in: activeLoanStatuses } }, include: { copy: { include: { book: true } } }, orderBy: { createdAt: 'desc' } }),
+      prisma.loan.findFirst({ where: { userId, status: { in: activeLoanStatuses as LoanStatus[] } }, include: { copy: { include: { book: true } } }, orderBy: { createdAt: 'desc' } }),
       prisma.reservation.findFirst({ where: { userId, status: ReservationStatus.PENDING }, orderBy: { createdAt: 'desc' } })
     ]);
     const relatedRecord = book ? { type: 'BOOK', id: book.id, title: book.title } : loan && category === 'BORROWING' ? { type: 'LOAN', id: loan.id, title: loan.copy.book.title, loanUuid: loan.loanUuid } : reservation && category === 'RESERVATION' ? { type: 'RESERVATION', id: reservation.id, targetId: reservation.targetId } : null;
