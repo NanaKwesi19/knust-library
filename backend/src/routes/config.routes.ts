@@ -114,10 +114,17 @@ router.patch('/backup', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+import { performDatabaseBackup } from '../utils/backup.js';
+
 router.post('/backup/trigger', async (req: Request, res: Response): Promise<void> => {
   try {
     await (prisma as any).backupConfig.updateMany({
       data: { lastBackup: new Date() }
+    });
+
+    // Run the physical backup in the background
+    performDatabaseBackup().catch(err => {
+      console.error('Background backup failed:', err);
     });
 
     res.status(200).json({
