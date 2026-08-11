@@ -162,8 +162,7 @@ export default function CatalogExplorer() {
                 )}
               </div>
               </div>
-              </div>
-              <div className="text-xs font-mono bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-500">
+              <div className="text-xs font-mono bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-xl text-slate-500 shrink-0 mt-4 md:mt-0">
                 Shelf: {book.shelfLocation}
               </div>
             </div>
