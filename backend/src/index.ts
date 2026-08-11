@@ -35,6 +35,12 @@ app.use(morgan('dev'));
 app.use(auditLogInterceptor);
 app.use(rateLimiter(200, 15 * 60 * 1000));
 
+// Public student registration is always STUDENT. Staff applications use /staff-auth/register.
+app.use('/api/v1/auth/register', (req, _res, next) => {
+  req.body = { ...req.body, role: 'STUDENT' };
+  next();
+});
+
 app.use('/api/v1/auth', rateLimiter(1000, 15 * 60 * 1000), authRoutes);
 app.use('/api/v1/staff-auth', rateLimiter(1000, 15 * 60 * 1000), staffAuthRoutes);
 app.use('/api/v1/loans', loanRoutes);
