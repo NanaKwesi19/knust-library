@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import os
+
+catalog_path = "C:/Users/hp/knust-library/frontend/src/components/layout/modules/CatalogExplorer.tsx"
+new_content = """import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import API from '../../../services/api';
@@ -213,3 +216,8 @@ export default function CatalogExplorer() {
     </div>
   );
 }
+"""
+
+with open(catalog_path, "w", encoding="utf-8") as f:
+    f.write(new_content)
+print("CatalogExplorer refactored to Grid Layout!")

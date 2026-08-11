@@ -901,6 +901,7 @@ router.get('/catalogue-search', async (req: Request, res: Response): Promise<voi
       category: book.category,
       shelfLocation: book.shelfLocation,
       coverImage: book.coverImage,
+      coverUrl: book.coverUrl,
       description: book.description,
       publisher: book.publisher,
       publishYear: book.publishYear,
