@@ -527,6 +527,8 @@ model LibrarySetting {
   renewalLimit            Int      @default(2)
   fineRatePerDay          Float    @default(2.0)
   maxFineAmount           Float    @default(50.0)
+  lostBookDaysThreshold   Int      @default(90)
+  lostBookFee             Float    @default(150.0)
   gracePeriodDays         Int      @default(3)
   enableEmailNotifications Boolean @default(true)
   enableSmsNotifications   Boolean @default(false)

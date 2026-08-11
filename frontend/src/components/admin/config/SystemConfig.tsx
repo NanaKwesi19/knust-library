@@ -48,6 +48,8 @@ interface LibrarySettings {
   renewalLimit: number;
   fineRatePerDay: number;
   maxFineAmount: number;
+  lostBookDaysThreshold: number;
+  lostBookFee: number;
   gracePeriodDays: number;
   enableEmailNotifications: boolean;
   enableSmsNotifications: boolean;
