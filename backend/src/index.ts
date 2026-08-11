@@ -6,6 +6,7 @@ import morgan from 'morgan';
 
 import { initCronJobs } from './jobs/cron.js';
 import authRoutes from './routes/auth.routes.js';
+import staffAuthRoutes from './routes/staff-auth.routes.js';
 import loanRoutes from './routes/loan.routes.js';
 import bookRoutes from './routes/book.routes.js';
 import roomRoutes from './routes/room.routes.js';
@@ -35,6 +36,7 @@ app.use(auditLogInterceptor);
 app.use(rateLimiter(200, 15 * 60 * 1000));
 
 app.use('/api/v1/auth', rateLimiter(1000, 15 * 60 * 1000), authRoutes);
+app.use('/api/v1/staff-auth', rateLimiter(1000, 15 * 60 * 1000), staffAuthRoutes);
 app.use('/api/v1/loans', loanRoutes);
 app.use('/api/v1/books', bookRoutes);
 app.use('/api/v1/rooms', roomRoutes);
@@ -48,7 +50,6 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/fines', fineRoutes);
-// Unified student-facing library workflows: policies, My Library, reservation queue and smart issue intake.
 app.use('/api/v1/library', libraryWorkflowRoutes);
 
 app.get('/health', (_req, res) => {
@@ -56,12 +57,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/', (_req, res) => {
-  res.status(200).json({
-    name: 'KNUST Library API',
-    status: 'online',
-    version: '1.0.0',
-    health: '/health'
-  });
+  res.status(200).json({ name: 'KNUST Library API', status: 'online', version: '1.0.0', health: '/health' });
 });
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -70,7 +66,4 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 initCronJobs();
-
-app.listen(PORT, () => {
-  console.log(`[SERVER START]: Library backend server live at http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`[SERVER START]: Library backend server live at http://localhost:${PORT}`));
