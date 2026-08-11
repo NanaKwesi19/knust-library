@@ -387,8 +387,18 @@ export const Login: React.FC = () => {
 
             </form>
 
+            {/* Registration Link */}
+            <div className="mt-6 text-center">
+              <span className="text-xs font-semibold text-slate-500">
+                Don't have an account?{' '}
+                <a href="/register" className="text-[#7A1C2C] hover:text-[#5A0A16] font-bold hover:underline transition-all">
+                  Register here
+                </a>
+              </span>
+            </div>
+
             {/* Footer */}
-            <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
+            <div className="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-2">
                 Secure Session Active
               </span>

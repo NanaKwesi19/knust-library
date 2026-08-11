@@ -6,6 +6,7 @@ import { Button } from '../../ui/Button';
 import { Badge } from '../../ui/Badge';
 import { EmptyState } from '../../ui/EmptyState';
 import { useToast } from '../../../hooks/useToast';
+import API from '../../../services/api';
 
 interface OpenLibraryDoc {
   key: string;
@@ -67,7 +68,7 @@ export default function OpenLibrarySearch() {
       };
 
       // Replace with your actual API endpoint
-      // await API.post('/books/import', bookData);
+      await API.post('/books/import-open-library', bookData);
       
       addToast(`"${book.title}" imported successfully!`, 'success');
       setSelectedBook(null);
