@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAutoSave } from '../../../hooks/useAutoSave';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import API from '../../../services/api';
 import { Button } from '../../ui/Button';
@@ -16,7 +17,7 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
   const queryClient = useQueryClient();
   const isEditing = !!book;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData, clearFormData] = useAutoSave('knust_book_form', {
     title: book?.title || '',
     author: book?.author || '',
     isbn: book?.isbn || '',
@@ -70,6 +71,8 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
         ? `Book Updated: "${book?.title}" has been updated.`
         : `Book Added: "${formData.title}" has been added to the catalog.`
       );
+      
+      clearFormData(); // Wipe the draft on successful submit
       
       // Delay modal close so toast is visible
       setTimeout(() => {
