@@ -1,4 +1,10 @@
-import React, { useState } from 'react';
+import os
+
+facility_path = "C:/Users/hp/knust-library/frontend/src/components/admin/facilities/FacilityManagement.tsx"
+with open(facility_path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+new_content = """import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import API from '../../../services/api';
 import { Building2, Users, MapPin, Plus, Trash2, Edit, Loader2 } from 'lucide-react';
@@ -220,3 +226,7 @@ export default function FacilityManagement() {
     </div>
   );
 }
+"""
+
+with open(facility_path, "w", encoding="utf-8") as f:
+    f.write(new_content)
