@@ -556,6 +556,43 @@ export default function SystemConfig() {
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-rose-400 font-bold uppercase">Lost Book Threshold (Days)</div>
+                    <div className="text-2xl font-black text-rose-600 mt-1">{settings.lostBookDaysThreshold ?? 90}</div>
+                  </div>
+                  <input
+                    type="number"
+                    step="1"
+                    defaultValue={settings.lostBookDaysThreshold ?? 90}
+                    onBlur={e => updateSettingsMutation.mutate({ lostBookDaysThreshold: Number(e.target.value) })}
+                    min={1}
+                    max={365}
+                    className={`${numberClass} border-rose-200`}
+                  />
+                </div>
+              </div>
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-rose-400 font-bold uppercase">Lost Book Replacement Fee</div>
+                    <div className="text-2xl font-black text-rose-600 mt-1">GH₵{(settings.lostBookFee ?? 150).toFixed(2)}</div>
+                  </div>
+                  <input
+                    type="number"
+                    step="5"
+                    defaultValue={settings.lostBookFee ?? 150}
+                    onBlur={e => updateSettingsMutation.mutate({ lostBookFee: Number(e.target.value) })}
+                    min={0}
+                    max={1000}
+                    className={`${numberClass} border-rose-200`}
+                  />
+                </div>
+              </div>
+            </div>
           </Card>
         </motion.div>
       )}
