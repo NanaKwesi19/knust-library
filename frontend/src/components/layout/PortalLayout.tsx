@@ -27,6 +27,7 @@ const menuItems = [
   { id: 'recommendations', name: 'For You', icon: Sparkles, path: '/portal/recommendations' },
   { id: 'profile', name: 'My Profile', icon: UserCircle, path: '/portal/profile' },
   { id: 'helpdesk', name: 'Help & Support', icon: Wrench, path: '/portal/helpdesk' },
+  { id: 'report-issue', name: 'Report a Library Issue', icon: Wrench, path: '/portal/helpdesk', emphasis: true },
   { id: 'policies', name: 'Rules & Policies', icon: FileText, path: '/portal/policies' },
 ];
 
@@ -46,7 +47,6 @@ export default function PortalLayout({ children, activeStudentName, studentId, o
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col md:flex-row">
-      {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between bg-[#800020] text-white p-4 shadow-md z-30">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-amber-400 rounded flex items-center justify-center font-bold text-[#800020]">K</div>
@@ -57,7 +57,6 @@ export default function PortalLayout({ children, activeStudentName, studentId, o
         </button>
       </div>
 
-      {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 bg-[#800020] text-white w-64 p-5 flex flex-col justify-between shadow-xl z-40 transition-transform duration-300 md:translate-x-0 md:static
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -81,16 +80,17 @@ export default function PortalLayout({ children, activeStudentName, studentId, o
             {menuItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const emphasized = item.emphasis;
               return (
                 <button
                   key={item.id}
                   onClick={() => handleTabClick(item)}
                   className={`
                     w-full flex items-center gap-3 px-4 py-2.5 text-xs font-semibold rounded-xl transition-all duration-150 group relative
-                    ${active ? 'bg-amber-400 text-[#800020] shadow-md font-bold' : 'text-white/80 hover:bg-[#990026] hover:text-white'}
+                    ${active ? 'bg-amber-400 text-[#800020] shadow-md font-bold' : emphasized ? 'text-amber-200 bg-white/5 hover:bg-[#990026] hover:text-white' : 'text-white/80 hover:bg-[#990026] hover:text-white'}
                   `}
                 >
-                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#800020]' : 'text-white/50 group-hover:text-amber-300'}`} />
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-[#800020]' : emphasized ? 'text-amber-300' : 'text-white/50 group-hover:text-amber-300'}`} />
                   <span className="flex-1 text-left">{item.name}</span>
                   {item.badge && <span className="w-2 h-2 bg-amber-400 rounded-full" />}
                 </button>
@@ -110,7 +110,6 @@ export default function PortalLayout({ children, activeStudentName, studentId, o
         </div>
       </aside>
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="hidden md:flex items-center justify-between bg-white border-b border-slate-200/80 px-8 py-4 shadow-sm">
           <div>
