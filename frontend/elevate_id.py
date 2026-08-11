@@ -1,4 +1,10 @@
-import React, { useMemo, useState, useRef } from 'react';
+import os
+
+id_path = "C:/Users/hp/knust-library/frontend/src/components/layout/modules/DigitalIdentity.tsx"
+with open(id_path, "r", encoding="utf-8") as f:
+    original = f.read()
+
+new_content = """import React, { useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import API from '../../../services/api';
@@ -124,7 +130,7 @@ export default function DigitalIdentity() {
             />
             
             {/* Background Texture Pattern */}
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent z-0" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'20\' height=\'20\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\' fill-rule=\'evenodd\'%3E%3Ccircle cx=\'3\' cy=\'3\' r=\'1\'/%3E%3Ccircle cx=\'13\' cy=\'13\' r=\'1\'/%3E%3C/g%3E%3C/svg%3E")' }}></div>
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent z-0" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'1\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'1\\'/%3E%3C/g%3E%3C/svg%3E")' }}></div>
 
             <div className="relative z-10 p-6 flex flex-col h-full justify-between transform-gpu" style={{ transform: "translateZ(30px)" }}>
               {/* Header */}
@@ -277,3 +283,9 @@ export default function DigitalIdentity() {
     </div>
   );
 }
+"""
+
+with open(id_path, "w", encoding="utf-8") as f:
+    f.write(new_content)
+    
+print("Digital Identity successfully elevated.")
