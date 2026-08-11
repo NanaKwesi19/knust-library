@@ -22,6 +22,7 @@ import auditLogRoutes from './routes/audit-logs.routes.js';
 import configRoutes from './routes/config.routes.js';
 import fineRoutes from './routes/fine.routes.js';
 import libraryWorkflowRoutes from './routes/library-workflow.routes.js';
+import libraryIssueAnalysisRoutes from './routes/library-issue-analysis.routes.js';
 
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { auditLogInterceptor } from './middlewares/auditLogger.js';
@@ -59,6 +60,7 @@ app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/fines', fineRoutes);
 app.use('/api/v1/library', libraryWorkflowRoutes);
+app.use('/api/v1/library', libraryIssueAnalysisRoutes);
 
 app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });
