@@ -72,6 +72,7 @@ export interface BookRecord {
   edition?: string | null;
   pages?: number | null;
   coverImage?: string | null;
+  coverUrl?: string | null;
   tags: string[];
   createdAt: string;
   updatedAt?: string;
