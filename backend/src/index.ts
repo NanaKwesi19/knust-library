@@ -4,6 +4,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
+// Jobs
+import { initCronJobs } from './jobs/cron.js';
+
 // Route Handlers
 import authRoutes from './routes/auth.routes.js';
 import loanRoutes from './routes/loan.routes.js';
@@ -57,6 +60,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error('Unhandled Server Exception:', err.stack);
   res.status(500).json({ success: false, error: 'A server error occurred.' });
 });
+
+// Initialize background jobs
+initCronJobs();
 
 app.listen(PORT, () => {
   console.log(`[SERVER START]: Library backend server live at http://localhost:${PORT}`);
