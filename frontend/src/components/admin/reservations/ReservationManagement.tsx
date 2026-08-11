@@ -132,7 +132,7 @@ export default function ReservationManagement() {
 
   const createMutation = useMutation({
     mutationFn: async (payload: { studentId: string; type: string; targetId: string; scheduledFor: string; notes?: string }) => {
-      const res = await API.post('/rooms/reservations', payload);
+      const res = await API.post('/reservations/create', payload);
       return res.data;
     },
     onSuccess: () => {
