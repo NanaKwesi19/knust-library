@@ -21,7 +21,7 @@ import {
   Library,
   HelpCircle,
   Mail,
-  Wrench, // ✅ ADDED
+  Wrench, Building2,
 } from 'lucide-react';
 
 interface NavItem {
@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { key: 'fines', label: 'Fines', icon: Coins, path: '/admin/fines', roles: ['ADMIN', 'LIBRARIAN'] },
   // Maintenance nav item
   { key: 'maintenance', label: 'Maintenance', icon: Wrench, path: '/admin/maintenance', roles: ['ADMIN', 'LIBRARIAN'] },
+  { key: 'facilities', label: 'Facilities', icon: Building2, path: '/admin/facilities', roles: ['ADMIN', 'LIBRARIAN'] },
   { key: 'resources', label: 'Digital Resources', icon: Globe, path: '/admin/resources', roles: ['ADMIN', 'LIBRARIAN', 'STAFF'] },
   { key: 'reports', label: 'Reports', icon: BarChart3, path: '/admin/reports', roles: ['ADMIN', 'LIBRARIAN'] },
   { key: 'ai', label: 'AI Insights', icon: Brain, path: '/admin/ai', roles: ['ADMIN', 'LIBRARIAN'] },

@@ -23,6 +23,7 @@ const SystemConfig = lazy(() => import('../config/SystemConfig'));
 // Use a relative path for the maintenance module to avoid absolute-path resolution issues
 const MaintenanceManagement = lazy(() => import('../maintenance/MaintenanceManagement'));
 const OpenLibrarySearch = lazy(() => import('../openlibrary/OpenLibrarySearch'));
+const FacilityManagement = lazy(() => import('../facilities/FacilityManagement'));
 
 // Route guard component
 const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string[] }> = ({
@@ -233,6 +234,16 @@ export default function AdminDashboard() {
                       <motion.div key="openlibrary" variants={pageVariants} initial="initial" animate="animate" exit="exit">
                         <ProtectedRoute allowedRoles={['ADMIN', 'LIBRARIAN']}>
                           <OpenLibrarySearch />
+                        </ProtectedRoute>
+                      </motion.div>
+                    }
+                  />
+                  <Route
+                    path="/facilities"
+                    element={
+                      <motion.div key="facilities" variants={pageVariants} initial="initial" animate="animate" exit="exit">
+                        <ProtectedRoute allowedRoles={['ADMIN', 'LIBRARIAN']}>
+                          <FacilityManagement />
                         </ProtectedRoute>
                       </motion.div>
                     }
