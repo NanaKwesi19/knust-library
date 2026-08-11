@@ -10,8 +10,18 @@ declare global {
   }
 }
 
+// VITE_API_URL may be configured as either the backend origin
+// (https://knustlibrary.onrender.com) or the full API base
+// (https://knustlibrary.onrender.com/api/v1). Normalize both forms.
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
+const API_BASE_URL = configuredApiUrl
+  ? configuredApiUrl.endsWith('/api/v1')
+    ? configuredApiUrl
+    : `${configuredApiUrl}/api/v1`
+  : 'http://localhost:5000/api/v1';
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
