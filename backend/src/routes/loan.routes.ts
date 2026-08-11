@@ -98,6 +98,7 @@ router.get('/comprehensive', async (req: Request, res: Response): Promise<void> 
 router.get('/overdue', async (req: Request, res: Response): Promise<void> => {
   try {
     const now = new Date();
+    const settings = await prisma.librarySetting.findFirst() || { fineRatePerDay: 2.0, maxFineAmount: 50.0, loanDurationDays: 14, maxBooksPerStudent: 5, maxBooksPerStaff: 10, renewalLimit: 2 };
 
     const overdueLoans = await prisma.loan.findMany({
       where: {
@@ -119,8 +120,8 @@ router.get('/overdue', async (req: Request, res: Response): Promise<void> => {
     // Calculate days overdue and accrued fine for each
     const enriched = overdueLoans.map((loan) => {
       const daysOverdue = Math.ceil((now.getTime() - new Date(loan.dueDate).getTime()) / (1000 * 60 * 60 * 24));
-      const fineRate = 2.0; // GH₵2 per day — should come from LibrarySetting in production
-      const fineAmount = Math.min(daysOverdue * fineRate, 50.0);
+      const fineRate = settings.fineRatePerDay;
+      const fineAmount = Math.min(daysOverdue * fineRate, settings.maxFineAmount);
 
       return {
         ...loan,
@@ -258,6 +259,7 @@ router.get('/overdue-summary', restrictTo(Role.ADMIN, Role.LIBRARIAN), async (re
 router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
   try {
     const { studentId, barcode, dueDate } = req.body;
+    const settings = await prisma.librarySetting.findFirst() || { fineRatePerDay: 2.0, maxFineAmount: 50.0, loanDurationDays: 14, maxBooksPerStudent: 5, maxBooksPerStaff: 10, renewalLimit: 2 };
 
     if (!studentId || !barcode) {
       res.status(400).json({ success: false, error: 'Student ID and barcode are required.' });
@@ -276,8 +278,9 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Check loan limit
-    if (student._count.loans >= 5) {
-      res.status(400).json({ success: false, error: 'Student has reached the maximum loan limit (5 books).' });
+    const limit = student.role === Role.STUDENT ? settings.maxBooksPerStudent : settings.maxBooksPerStaff;
+    if (student._count.loans >= limit) {
+      res.status(400).json({ success: false, error: `Maximum loan limit reached (${limit} books).` });
       return;
     }
 
@@ -298,7 +301,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
     }
 
     // Calculate due date (14 days from now if not provided)
-    const calculatedDueDate = dueDate ? new Date(dueDate) : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    const calculatedDueDate = dueDate ? new Date(dueDate) : new Date(Date.now() + settings.loanDurationDays * 24 * 60 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
       // Create loan
@@ -386,6 +389,7 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
 
     const now = new Date();
     const isOverdue = loan.dueDate < now;
+    const settings = await prisma.librarySetting.findFirst() || { fineRatePerDay: 2.0, maxFineAmount: 50.0, loanDurationDays: 14, maxBooksPerStudent: 5, maxBooksPerStaff: 10, renewalLimit: 2 };
     let fine = null;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -420,7 +424,7 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
       // Check for fine if overdue
       if (isOverdue) {
         const daysOverdue = Math.ceil((now.getTime() - new Date(loan.dueDate).getTime()) / (1000 * 60 * 60 * 24));
-        const fineAmount = Math.min(daysOverdue * 2.0, 50.0);
+        const fineAmount = Math.min(daysOverdue * settings.fineRatePerDay, settings.maxFineAmount);
 
         fine = await tx.fine.create({
           data: {
@@ -487,6 +491,7 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
 router.post('/renew', async (req: Request, res: Response): Promise<void> => {
   try {
     const { loanUuid, newDueDate } = req.body;
+    const settings = await prisma.librarySetting.findFirst() || { fineRatePerDay: 2.0, maxFineAmount: 50.0, loanDurationDays: 14, maxBooksPerStudent: 5, maxBooksPerStaff: 10, renewalLimit: 2 };
 
     if (!loanUuid) {
       res.status(400).json({ success: false, error: 'Loan UUID is required.' });
@@ -511,14 +516,14 @@ router.post('/renew', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (loan.renewalCount >= 2) {
-      res.status(400).json({ success: false, error: 'Maximum renewals (2) reached for this loan.' });
+    if (loan.renewalCount >= settings.renewalLimit) {
+      res.status(400).json({ success: false, error: `Maximum renewals (${settings.renewalLimit}) reached for this loan.` });
       return;
     }
 
     const calculatedDueDate = newDueDate
       ? new Date(newDueDate)
-      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+      : new Date(Date.now() + settings.loanDurationDays * 24 * 60 * 60 * 1000);
 
     const updated = await prisma.$transaction(async (tx) => {
       const renewed = await tx.loan.update({
