@@ -13,6 +13,8 @@ import { EmptyState } from '../../ui/EmptyState';
 import { SkeletonTable } from '../../ui/Skeleton';
 import { useToast } from '../../../hooks/useToast';
 import { formatDate, formatRelative } from '../../../utils/formatters';
+import LibraryIssueDetails from './LibraryIssueDetails';
+import { isLibraryIssue } from './libraryIssueUtils';
 import {
   Wrench,
   AlertCircle,
@@ -117,11 +119,17 @@ export default function MaintenanceManagement() {
       const res = await API.patch(`/maintenance/${id}/status`, { status });
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['maintenanceAll'] });
-      addToast('Status Updated: Complaint status has been updated and student notified.');
-      setUpdatingId(null);
-    },
+    onSuccess: async () => {
+  await queryClient.invalidateQueries({ queryKey: ['maintenanceAll'] });
+
+  await queryClient.refetchQueries({
+    queryKey: ['maintenanceAll'],
+    type: 'active',
+  });
+
+  addToast('Status Updated: Complaint status has been updated and student notified.');
+  setUpdatingId(null);
+},
     onError: (error: any) => {
       addToast('Error: ' + (error?.response?.data?.error || 'Failed to update status.'));
     },
@@ -171,6 +179,17 @@ export default function MaintenanceManagement() {
         </div>
       ),
     },
+    {
+  key: 'libraryIssue',
+  header: 'Type',
+  align: 'center' as const,
+  cell: (row: ComplaintRecord) =>
+    isLibraryIssue(row.description, row.roomNumber) ? (
+      <Badge variant="info" size="sm">Library Issue</Badge>
+    ) : (
+      <span className="text-[10px] text-slate-400">Maintenance</span>
+    ),
+},
     {
       key: 'location',
       header: 'Location',
@@ -414,6 +433,15 @@ export default function MaintenanceManagement() {
                 {viewingComplaint.description || 'No description provided.'}
               </p>
             </div>
+            {isLibraryIssue(
+  viewingComplaint.description,
+  viewingComplaint.roomNumber
+) && (
+  <LibraryIssueDetails
+    description={viewingComplaint.description}
+    status={viewingComplaint.status}
+  />
+)}
 
             {(viewingComplaint.resolvedBy || {}).fullName && (
               <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
