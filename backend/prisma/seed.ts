@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Role, AccountStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 async function main() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
+  const fullName = process.env.ADMIN_NAME?.trim() || 'KNUST Library Administrator';
 
   if (!email || !password) {
     console.log('[Seed] ADMIN_EMAIL or ADMIN_PASSWORD is not configured; skipping admin seed.');
@@ -17,34 +18,29 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-
   const existing = await prisma.user.findUnique({ where: { email } });
 
   if (existing) {
-    if (existing.role !== 'ADMIN' || existing.passwordHash !== passwordHash) {
-      await prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          role: 'ADMIN',
-          passwordHash,
-          isActive: true,
-          emailVerified: true,
-        },
-      });
-      console.log(`[Seed] Admin account updated: ${email}`);
-    } else {
-      console.log(`[Seed] Admin account already exists: ${email}`);
-    }
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        fullName: existing.fullName || fullName,
+        password: passwordHash,
+        role: Role.ADMIN,
+        status: AccountStatus.ACTIVE,
+      },
+    });
+    console.log(`[Seed] Admin account ensured: ${email}`);
     return;
   }
 
   await prisma.user.create({
     data: {
+      fullName,
       email,
-      passwordHash,
-      role: 'ADMIN',
-      isActive: true,
-      emailVerified: true,
+      password: passwordHash,
+      role: Role.ADMIN,
+      status: AccountStatus.ACTIVE,
     },
   });
 
