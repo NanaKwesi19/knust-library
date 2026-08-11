@@ -83,7 +83,8 @@ router.patch('/:id/verify', async (req: Request, res: Response): Promise<void> =
     if (!Number.isInteger(id)) { res.status(400).json({ success: false, error: 'Invalid staff account.' }); return; }
 
     const staff = await prisma.user.findUnique({ where: { id } });
-    if (!staff || ![Role.STAFF, Role.LIBRARIAN].includes(staff.role)) {
+    const isStaffRole = staff?.role === Role.STAFF || staff?.role === Role.LIBRARIAN;
+    if (!staff || !isStaffRole) {
       res.status(404).json({ success: false, error: 'Staff account not found.' });
       return;
     }
