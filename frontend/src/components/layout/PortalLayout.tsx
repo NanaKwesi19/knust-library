@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, BookOpen, CalendarRange, UserSquare2, Wrench,
   Bell, LogOut, Menu, X, Library, CreditCard, Receipt, History,
-  Sparkles, UserCircle, Search,
+  Sparkles, UserCircle, Search, FileText,
 } from 'lucide-react';
 
 interface PortalLayoutProps {
@@ -27,6 +27,7 @@ const menuItems = [
   { id: 'recommendations', name: 'For You', icon: Sparkles, path: '/portal/recommendations' },
   { id: 'profile', name: 'My Profile', icon: UserCircle, path: '/portal/profile' },
   { id: 'helpdesk', name: 'Help & Support', icon: Wrench, path: '/portal/helpdesk' },
+  { id: 'policies', name: 'Rules & Policies', icon: FileText, path: '/portal/policies' },
 ];
 
 export default function PortalLayout({ children, activeStudentName, studentId, onLogout }: PortalLayoutProps) {

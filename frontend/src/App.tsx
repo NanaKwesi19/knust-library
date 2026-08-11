@@ -28,6 +28,7 @@ const ReadingHistory = lazy(() => import('./components/layout/modules/ReadingHis
 const Recommendations = lazy(() => import('./components/layout/modules/Recommendations'));
 const ProfileSettings = lazy(() => import('./components/layout/modules/ProfileSettings'));
 const LibraryHelpDesk = lazy(() => import('./components/layout/modules/LibraryHelpDesk'));
+const LibraryPolicies = lazy(() => import('./components/layout/modules/LibraryPolicies'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +88,7 @@ function StudentPortal() {
         <Route path="recommendations" element={<Recommendations />} />
         <Route path="profile" element={<ProfileSettings />} />
         <Route path="helpdesk" element={<LibraryHelpDesk />} />
+        <Route path="policies" element={<LibraryPolicies />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
     </PortalLayout>
