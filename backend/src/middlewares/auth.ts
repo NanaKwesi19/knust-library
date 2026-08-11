@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import {prisma} from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
 import { Role, AccountStatus } from '@prisma/client';
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -36,12 +36,14 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
 
     const currentUser = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { 
-        id: true, 
-        userUuid: true, 
-        role: true, 
-        email: true, 
-        status: true  // <-- Changed from isActive to status
+      select: {
+        id: true,
+        userUuid: true,
+        role: true,
+        email: true,
+        fullName: true,
+        studentId: true,
+        status: true
       }
     });
 
@@ -50,7 +52,6 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    // Check status instead of isActive
     if (currentUser.status === AccountStatus.SUSPENDED) {
       res.status(401).json({ success: false, error: 'Your account has been suspended. Contact administration.' });
       return;
@@ -60,7 +61,9 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       id: currentUser.id,
       userUuid: currentUser.userUuid,
       role: currentUser.role,
-      email: currentUser.email
+      email: currentUser.email,
+      fullName: currentUser.fullName,
+      studentId: currentUser.studentId
     };
 
     next();
@@ -69,21 +72,12 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
   }
 };
 
-export const restrictTo = (...allowedRoles: Role[]) => {
+export const restrictTo = (...roles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(500).json({ success: false, error: 'Security context configuration mismatch.' });
+    if (!req.user || !roles.includes(req.user.role)) {
+      res.status(403).json({ success: false, error: 'You do not have permission to perform this action.' });
       return;
     }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ 
-        success: false, 
-        error: `Access Denied. Your role (${req.user.role}) is unauthorized to execute this operation.` 
-      });
-      return;
-    }
-
     next();
   };
 };
