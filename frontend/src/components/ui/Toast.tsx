@@ -8,7 +8,7 @@ import {
   X,
   ArrowRight
 } from 'lucide-react';
-import type { ToastItem } from '../../context/ToastContext';
+// import type { ToastItem } from '../../context/ToastContext';
 
 const iconMap = {
   success: CheckCircle2,
@@ -32,12 +32,13 @@ const iconColorMap = {
 };
 
 export const Toast: React.FC<{
-  toast: ToastItem;
+  toast: any;
   onRemove: (id: string) => void;
 }> = ({ toast, onRemove }) => {
-  const Icon = iconMap[toast.type];
-  const colors = colorMap[toast.type];
-  const iconColor = iconColorMap[toast.type];
+  const tType = toast.type as keyof typeof iconMap;
+  const Icon = iconMap[tType];
+  const colors = colorMap[tType];
+  const iconColor = iconColorMap[tType];
 
   return (
     <motion.div

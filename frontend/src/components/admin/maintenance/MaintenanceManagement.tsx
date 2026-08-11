@@ -224,9 +224,9 @@ export default function MaintenanceManagement() {
   ];
 
   const statusCounts = {
-    pending: complaints.filter((c) => String(c.status).toUpperCase() === 'PENDING').length,
-    inProgress: complaints.filter((c) => String(c.status).toUpperCase() === 'IN_PROGRESS').length,
-    resolved: complaints.filter((c) => String(c.status).toUpperCase() === 'RESOLVED').length,
+    pending: complaints.filter((c: any) => String(c.status).toUpperCase() === 'PENDING').length,
+    inProgress: complaints.filter((c: any) => String(c.status).toUpperCase() === 'IN_PROGRESS').length,
+    resolved: complaints.filter((c: any) => String(c.status).toUpperCase() === 'RESOLVED').length,
   };
 
   console.log('[MaintenanceManagement] About to render. complaints:', complaints.length, 'isLoading:', isLoading);

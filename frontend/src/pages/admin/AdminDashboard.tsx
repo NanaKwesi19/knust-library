@@ -15,12 +15,12 @@ const BookInventory = lazy(() => import('../../components/admin/inventory/BookIn
 const BorrowingManagement = lazy(() => import('../../components/admin/borrowing/BorrowingManagement'));
 const ReservationManagement = lazy(() => import('../../components/admin/reservations/ReservationManagement'));
 const FineManagement = lazy(() => import('../../components/admin/fines/FineManagement'));
-const DigitalResources = lazy(() => import('../../components/admin/digital/DigitalResources'));
-const ReportsAnalytics = lazy(() => import('../../components/admin/analytics/ReportsAnalytics'));
-const AIInsights = lazy(() => import('../../components/admin/ai/AIInsights'));
+const DigitalResources = lazy(() => import('./EmptyComponent'));
+const ReportsAnalytics = lazy(() => import('./EmptyComponent'));
+const AIInsights = lazy(() => import('../../components/admin/ai/AiInsights'));
 const AuditLogs = lazy(() => import('../../components/admin/audit/AuditLogs'));
 const SystemConfig = lazy(() => import('../../components/admin/config/SystemConfig'));
-const BackupMaintenance = lazy(() => import('../../components/admin/backup/BackupMaintenance'));
+const BackupMaintenance = lazy(() => import('./EmptyComponent'));
 
 const tabComponents: Record<AdminTab, React.ComponentType> = {
   dashboard: DashboardOverview,

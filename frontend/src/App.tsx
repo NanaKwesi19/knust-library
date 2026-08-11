@@ -7,7 +7,7 @@ import { LoadingScreen } from './components/ui/LoadingScreen';
 
 // Eager load auth pages
 import { Login } from './pages/Login';
-import { Register } from './pages/RegisterPage';
+import { RegisterPage } from './pages/RegisterPage';
 
 // Lazy load admin dashboard
 const AdminDashboard = lazy(() => import('./components/admin/layout/AdminDashboard'));
@@ -97,7 +97,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
-      <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
+      <Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} />
       <Route
         path="/admin/*"
         element={

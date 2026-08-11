@@ -152,8 +152,8 @@ export default function AuditLogs() {
         Description: l.description,
         Severity: l.severity || 'INFO',
         User: l.user?.fullName || 'System',
-        'User Email': l.user?.email || '-',
-        'Student ID': l.user?.studentId || '-',
+        'User Email': (l.user as any)?.email || '-',
+        'Student ID': (l.user as any)?.studentId || '-',
         'IP Address': (l as any).ipAddress || '-',
         'User Agent': (l as any).userAgent || '-',
         Timestamp: formatDateTime(l.createdAt),
@@ -202,7 +202,7 @@ export default function AuditLogs() {
           {row.user ? (
             <>
               <div className="text-xs font-bold text-slate-700 truncate">{row.user.fullName}</div>
-              <div className="text-[10px] text-slate-400 font-mono">{row.user.studentId || row.user.email}</div>
+              <div className="text-[10px] text-slate-400 font-mono">{row.user.fullName || row.user.fullName}</div>
             </>
           ) : (
             <span className="text-[11px] text-slate-400 italic">System</span>
@@ -422,7 +422,7 @@ export default function AuditLogs() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-3 bg-slate-50 rounded-xl">
                         <div className="text-[10px] text-slate-400 font-bold uppercase">Email</div>
-                        <div className="text-xs text-slate-700 font-medium mt-0.5">{viewingLog.user.email}</div>
+                        <div className="text-xs text-slate-700 font-medium mt-0.5">{viewingLog.user.fullName}</div>
                       </div>
                       <div className="p-3 bg-slate-50 rounded-xl">
                         <div className="text-[10px] text-slate-400 font-bold uppercase">Role</div>
