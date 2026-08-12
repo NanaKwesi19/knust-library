@@ -18,6 +18,8 @@ import { useExport } from '../../../hooks/useExport';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { formatDate, formatNumber } from '../../../utils/formatters';
 import { BookForm } from './BookForm';
+import AddPhysicalCopies from './AddPhysicalCopies';
+import type { PhysicalCopyDraft } from './AddPhysicalCopies';
 import type { BookRecord, ApiResponse, PaginatedResponse } from '../../../types/admin';
 import {
   BookOpen,
@@ -77,7 +79,9 @@ export default function BookInventory() {
   const [limit] = useState(10);
   const [selectedBooks, setSelectedBooks] = useState<Set<number>>(new Set());
   const [viewingBook, setViewingBook] = useState<BookRecord | null>(null);
-  const [editingBook, setEditingBook] = useState<BookRecord | null>(null); // ADDED
+  const [editingBook, setEditingBook] = useState<BookRecord | null>(null); 
+  const [showAddCopies, setShowAddCopies] = useState(false);
+  const [copyTargetBook, setCopyTargetBook] = useState<BookRecord | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bookToDelete, setBookToDelete] = useState<BookRecord | null>(null);
@@ -116,6 +120,34 @@ export default function BookInventory() {
       addToast(error?.response?.data?.error || 'Could not delete book.');
     },
   });
+  const addCopiesMutation = useMutation({
+  mutationFn: async ({
+    bookId,
+    copies,
+  }: {
+    bookId: number;
+    copies: PhysicalCopyDraft[];
+  }) => {
+    const res = await API.post(`/books/${bookId}/copies`, { copies });
+    return res.data;
+  },
+
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['books'] });
+
+    setShowAddCopies(false);
+    setCopyTargetBook(null);
+
+    addToast('Physical copies added successfully.');
+  },
+
+  onError: (error: any) => {
+    addToast(
+      error?.response?.data?.error ||
+      'Could not add physical copies.'
+    );
+  },
+});
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (bookIds: number[]) => {
@@ -610,7 +642,22 @@ export default function BookInventory() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Copies ({viewingBook.copies.length})</label>
+               <div className="flex items-center justify-between mb-2">
+  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+    Copies ({viewingBook.copies.length})
+  </label>
+
+  <button
+    type="button"
+    onClick={() => {
+      setCopyTargetBook(viewingBook);
+      setShowAddCopies(true);
+    }}
+    className="text-[10px] font-black text-[#7A1C2C] hover:underline"
+  >
+    + Add Copies
+  </button>
+</div>
                 <div className="space-y-2">
                   {viewingBook.copies.map((copy) => (
                     <div key={copy.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-xl">
@@ -685,7 +732,40 @@ export default function BookInventory() {
           </Button>
         </div>
       </Modal>
-
+<Modal
+  isOpen={showAddCopies}
+  onClose={() => {
+    if (addCopiesMutation.isPending) return;
+    setShowAddCopies(false);
+    setCopyTargetBook(null);
+  }}
+  title="Add Physical Copies"
+  description={
+    copyTargetBook
+      ? Add inventory copies for "${copyTargetBook.title}"
+      : undefined
+  }
+  size="lg"
+>
+  {copyTargetBook && (
+    <AddPhysicalCopies
+      bookTitle={copyTargetBook.title}
+      defaultLocation={copyTargetBook.shelfLocation}
+      defaultPrefix={`BOOK-${copyTargetBook.id}`}
+      isSubmitting={addCopiesMutation.isPending}
+      onCancel={() => {
+        setShowAddCopies(false);
+        setCopyTargetBook(null);
+      }}
+      onConfirm={(copies) => {
+        addCopiesMutation.mutate({
+          bookId: copyTargetBook.id,
+          copies,
+        });
+      }}
+    />
+  )}
+</Modal>
       {/* ADDED: Edit Modal */}
       <Modal
         isOpen={!!editingBook}
