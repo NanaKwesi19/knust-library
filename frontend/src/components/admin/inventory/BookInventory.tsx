@@ -742,7 +742,7 @@ export default function BookInventory() {
   title="Add Physical Copies"
   description={
     copyTargetBook
-      ? Add inventory copies for "${copyTargetBook.title}"
+      ? `Add inventory copies for "${copyTargetBook.title}"`
       : undefined
   }
   size="lg"
