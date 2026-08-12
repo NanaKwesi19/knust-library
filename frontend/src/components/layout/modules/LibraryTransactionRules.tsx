@@ -133,7 +133,7 @@ function Rule({ icon, label, value }: { icon: React.ReactNode; label: string; va
   return (
     <div className="rounded-xl bg-white border border-slate-200 p-3">
       <div className="flex items-center gap-2 text-slate-400">
-        {React.cloneElement(icon as React.ReactElement, { className: 'w-4 h-4' })}
+        <span className="w-4 h-4 shrink-0 inline-flex items-center justify-center">{icon}</span>
         <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
       </div>
       <div className="mt-1 text-xs font-black text-slate-700">{value}</div>
