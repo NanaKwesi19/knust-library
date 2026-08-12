@@ -40,19 +40,19 @@ export const Modal: React.FC<ModalProps> = ({
             className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"
             onClick={onClose}
           />
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className={cn(
-                'bg-white rounded-2xl border border-slate-200 shadow-xl w-full pointer-events-auto overflow-hidden',
+                'bg-white rounded-2xl border border-slate-200 shadow-xl w-full pointer-events-auto overflow-hidden flex flex-col max-h-[90vh] my-auto',
                 sizes[size]
               )}
             >
               {(title || !hideCloseButton) && (
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
                   <div>
                     {title && (
                       <h3 className="text-sm font-bold text-slate-900">{title}</h3>
@@ -71,7 +71,7 @@ export const Modal: React.FC<ModalProps> = ({
                   )}
                 </div>
               )}
-              <div className="p-6">{children}</div>
+              <div className="p-6 overflow-y-auto min-h-0">{children}</div>
             </motion.div>
           </div>
         </>
