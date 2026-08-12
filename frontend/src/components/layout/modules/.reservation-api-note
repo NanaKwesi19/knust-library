@@ -1,1 +1,0 @@
-Reservation API is mounted at /api/v1/student-reservations and the catalogue should call /student-reservations/books/:bookId.
