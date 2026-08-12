@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Role, CopyStatus } from '@prisma/client';
 import { protect, restrictTo } from '../middlewares/auth.js';
 import { prisma } from '../lib/prisma.js';
-
+import { addPhysicalCopies } from '../controllers/book.controller.js';
 const router = Router();
 
 router.use(protect);
@@ -212,6 +212,14 @@ router.get('/inventory', restrictTo(Role.LIBRARIAN, Role.ADMIN, Role.STUDENT, Ro
     res.status(500).json({ success: false, error: 'Failed to retrieve inventory.' });
   }
 });
+router.post(
+  '/:id/copies',
+  restrictTo(Role.LIBRARIAN, Role.ADMIN),
+  async (req: Request, res: Response): Promise<void> => {
+    req.body.bookId = Number(req.params.id);
+    return addPhysicalCopies(req, res);
+  }
+);
 
 /**
  * GET: /api/v1/books/:id
