@@ -10,6 +10,7 @@ import staffAuthRoutes from './routes/staff-auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import loanRoutes from './routes/loan.routes.js';
 import studentLoanRoutes from './routes/student-loan.routes.js';
+import studentReservationRoutes from './routes/student-reservation.routes.js';
 import bookRoutes from './routes/book.routes.js';
 import roomRoutes from './routes/room.routes.js';
 import reservationRoutes from './routes/reservation.routes.js';
@@ -49,6 +50,7 @@ app.use('/api/v1/staff-auth', rateLimiter(1000, 15 * 60 * 1000), staffAuthRoutes
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/loans', loanRoutes);
 app.use('/api/v1/student-loans', studentLoanRoutes);
+app.use('/api/v1/student-reservations', studentReservationRoutes);
 app.use('/api/v1/books', bookRoutes);
 app.use('/api/v1/rooms', roomRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
