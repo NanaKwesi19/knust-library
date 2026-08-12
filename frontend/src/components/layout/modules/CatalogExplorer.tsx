@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import API from '../../../services/api';
 import { useDebounce } from '../../../hooks/useDebounce';
+import LibraryTransactionRules, { LibraryTransactionType } from './LibraryTransactionRules';
 import {
-  Search, CheckCircle, XCircle, MapPin, Bookmark, Loader2, BookOpen, ExternalLink, Plus
+  Search, CheckCircle, XCircle, MapPin, Bookmark, Loader2, BookOpen
 } from 'lucide-react';
 
 interface BookCopy {
@@ -35,6 +36,8 @@ export default function CatalogExplorer() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [reserveMessage, setReserveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [rulesBook, setRulesBook] = useState<Book | null>(null);
+  const [rulesType, setRulesType] = useState<LibraryTransactionType | null>(null);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -57,6 +60,9 @@ export default function CatalogExplorer() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['studentReservations'] });
       queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['catalogueSearch'] });
+      setRulesBook(null);
+      setRulesType(null);
       setReserveMessage({ type: 'success', text: data.message || 'Book reserved successfully!' });
       setTimeout(() => setReserveMessage(null), 3000);
     },
@@ -69,9 +75,32 @@ export default function CatalogExplorer() {
   const books: Book[] = catalogData?.data || [];
   const count: number = catalogData?.count || 0;
 
+  const openRules = (book: Book, type: LibraryTransactionType) => {
+    setRulesBook(book);
+    setRulesType(type);
+  };
+
+  const continueTransaction = () => {
+    if (!rulesBook || !rulesType) return;
+
+    // Reservation is already supported by the existing API. Borrowing is intentionally
+    // not invented here until the existing checkout endpoint is verified.
+    if (rulesType === 'RESERVE') {
+      reserveMutation.mutate(rulesBook.id);
+      return;
+    }
+
+    setReserveMessage({
+      type: 'error',
+      text: 'Borrowing confirmation is not available yet. The current checkout workflow needs to be connected before a loan can be created.',
+    });
+    setRulesBook(null);
+    setRulesType(null);
+    setTimeout(() => setReserveMessage(null), 5000);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Search Controls */}
       <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="relative md:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -114,7 +143,6 @@ export default function CatalogExplorer() {
         {debouncedSearch && count === 0 && 'No results match your search.'}
       </div>
 
-      {/* Book Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
@@ -142,7 +170,6 @@ export default function CatalogExplorer() {
                 exit={{ opacity: 0, y: -10 }}
                 className="bg-white border border-slate-200 rounded-2xl p-4 hover:shadow-md transition-shadow flex flex-col"
               >
-                {/* Cover */}
                 <div className="h-56 bg-slate-50 rounded-xl mb-4 flex items-center justify-center overflow-hidden shrink-0">
                   {book.coverImage || book.coverUrl ? (
                     <img
@@ -158,7 +185,6 @@ export default function CatalogExplorer() {
                   )}
                 </div>
 
-                {/* Info */}
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded text-[9px] font-bold uppercase tracking-wide truncate max-w-[120px]" title={book.category}>
@@ -174,41 +200,48 @@ export default function CatalogExplorer() {
                       </span>
                     )}
                   </div>
-                  
+
                   <h3 className="text-sm font-bold text-slate-800 line-clamp-2 mb-1" title={book.title}>{book.title}</h3>
-                  <p className="text-[11px] text-slate-500 mb-2 truncate" title={book.author}>
-                    {book.author}
-                  </p>
-                  
+                  <p className="text-[11px] text-slate-500 mb-2 truncate" title={book.author}>{book.author}</p>
                   <div className="text-[10px] text-slate-400 flex items-center gap-1 mb-4">
                     <MapPin className="w-3 h-3 text-slate-400" /> {book.shelfLocation}
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="pt-3 border-t border-slate-100 mt-auto">
+                <div className="pt-3 border-t border-slate-100 mt-auto space-y-2">
                   <button
-                    onClick={() => reserveMutation.mutate(book.id)}
-                    disabled={reserveMutation.isPending || book.availableCopies > 0}
-                    title={book.availableCopies > 0 ? 'Book is available on shelf' : 'Reserve this book'}
-                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm ${
-                      book.availableCopies > 0 
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        : 'bg-[#800020] hover:bg-[#66001a] text-white'
-                    }`}
+                    onClick={() => openRules(book, book.availableCopies > 0 ? 'BORROW' : 'RESERVE')}
+                    disabled={reserveMutation.isPending}
+                    title={book.availableCopies > 0 ? 'Review borrowing rules' : 'Review reservation rules'}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm bg-[#800020] hover:bg-[#66001a] text-white disabled:opacity-50"
                   >
                     {reserveMutation.isPending && reserveMutation.variables === book.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Bookmark className="w-3.5 h-3.5" />
                     )}
-                    {book.availableCopies > 0 ? 'Find on Shelf' : 'Request to Borrow'}
+                    {book.availableCopies > 0 ? 'Borrow Book' : 'Reserve Book'}
                   </button>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
+      )}
+
+      {rulesBook && rulesType && (
+        <LibraryTransactionRules
+          type={rulesType}
+          bookTitle={rulesBook.title}
+          onCancel={() => {
+            if (!reserveMutation.isPending) {
+              setRulesBook(null);
+              setRulesType(null);
+            }
+          }}
+          onContinue={continueTransaction}
+          isSubmitting={reserveMutation.isPending}
+        />
       )}
     </div>
   );
