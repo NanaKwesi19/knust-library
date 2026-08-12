@@ -15,6 +15,8 @@ export const reserveBookForStudent = async (req: Request, res: Response): Promis
     return;
   }
 
+  const userId = req.user.id;
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const book = await tx.book.findUnique({
@@ -35,7 +37,7 @@ export const reserveBookForStudent = async (req: Request, res: Response): Promis
 
       const existing = await tx.reservation.findFirst({
         where: {
-          userId: req.user.id,
+          userId,
           targetId: String(bookId),
           type: ReservationType.BOOK_HOLD,
           status: ReservationStatus.PENDING
@@ -62,7 +64,7 @@ export const reserveBookForStudent = async (req: Request, res: Response): Promis
           targetId: String(bookId),
           status: ReservationStatus.PENDING,
           notes: `Book reservation queue position ${queueAhead + 1}`,
-          userId: req.user.id
+          userId
         },
         select: {
           id: true,
@@ -74,7 +76,7 @@ export const reserveBookForStudent = async (req: Request, res: Response): Promis
 
       await tx.auditLog.create({
         data: {
-          userId: req.user.id,
+          userId,
           action: 'BOOK_RESERVATION_CREATED',
           entityType: 'Reservation',
           entityId: String(reservation.id),
@@ -107,10 +109,12 @@ export const getMyBookReservations = async (req: Request, res: Response): Promis
     return;
   }
 
+  const userId = req.user.id;
+
   try {
     const reservations = await prisma.reservation.findMany({
       where: {
-        userId: req.user.id,
+        userId,
         type: ReservationType.BOOK_HOLD
       },
       orderBy: { createdAt: 'desc' }
