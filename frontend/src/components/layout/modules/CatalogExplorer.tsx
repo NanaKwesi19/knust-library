@@ -62,11 +62,35 @@ export default function CatalogExplorer() {
       setRulesBook(null);
       setRulesType(null);
       setReserveMessage({ type: 'success', text: data.message || 'Book reserved successfully!' });
-      setTimeout(() => setReserveMessage(null), 3000);
+      setTimeout(() => setReserveMessage(null), 4000);
     },
     onError: (error: any) => {
       setReserveMessage({ type: 'error', text: error.response?.data?.error || 'Failed to reserve book.' });
-      setTimeout(() => setReserveMessage(null), 3000);
+      setTimeout(() => setReserveMessage(null), 5000);
+    },
+  });
+
+  const borrowMutation = useMutation({
+    mutationFn: async (bookId: number) => {
+      const res = await API.post('/student-loans/borrow', { bookId });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['catalogueSearch'] });
+      queryClient.invalidateQueries({ queryKey: ['studentDashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['studentLoans'] });
+      setRulesBook(null);
+      setRulesType(null);
+      const dueDate = data?.data?.dueDate ? new Date(data.data.dueDate).toLocaleDateString() : null;
+      setReserveMessage({
+        type: 'success',
+        text: dueDate ? `Book borrowed successfully. Due ${dueDate}.` : (data.message || 'Book borrowed successfully!')
+      });
+      setTimeout(() => setReserveMessage(null), 5000);
+    },
+    onError: (error: any) => {
+      setReserveMessage({ type: 'error', text: error.response?.data?.error || 'Failed to borrow book.' });
+      setTimeout(() => setReserveMessage(null), 5000);
     },
   });
 
@@ -86,14 +110,10 @@ export default function CatalogExplorer() {
       return;
     }
 
-    setReserveMessage({
-      type: 'error',
-      text: 'Borrowing confirmation is not available yet. The current checkout workflow needs to be connected before a loan can be created.',
-    });
-    setRulesBook(null);
-    setRulesType(null);
-    setTimeout(() => setReserveMessage(null), 5000);
+    borrowMutation.mutate(rulesBook.id);
   };
+
+  const isSubmitting = reserveMutation.isPending || borrowMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -170,8 +190,8 @@ export default function CatalogExplorer() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 mt-auto space-y-2">
-                  <button onClick={() => openRules(book, book.availableCopies > 0 ? 'BORROW' : 'RESERVE')} disabled={reserveMutation.isPending} title={book.availableCopies > 0 ? 'Review borrowing rules' : 'Review reservation rules'} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm bg-[#800020] hover:bg-[#66001a] text-white disabled:opacity-50">
-                    {reserveMutation.isPending && reserveMutation.variables === book.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5" />}
+                  <button onClick={() => openRules(book, book.availableCopies > 0 ? 'BORROW' : 'RESERVE')} disabled={isSubmitting} title={book.availableCopies > 0 ? 'Review borrowing rules' : 'Review reservation rules'} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors shadow-sm bg-[#800020] hover:bg-[#66001a] text-white disabled:opacity-50">
+                    {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5" />}
                     {book.availableCopies > 0 ? 'Borrow Book' : 'Reserve Book'}
                   </button>
                 </div>
@@ -185,9 +205,9 @@ export default function CatalogExplorer() {
         <LibraryTransactionRules
           type={rulesType}
           bookTitle={rulesBook.title}
-          onCancel={() => { if (!reserveMutation.isPending) { setRulesBook(null); setRulesType(null); } }}
+          onCancel={() => { if (!isSubmitting) { setRulesBook(null); setRulesType(null); } }}
           onContinue={continueTransaction}
-          isSubmitting={reserveMutation.isPending}
+          isSubmitting={isSubmitting}
         />
       )}
     </div>
