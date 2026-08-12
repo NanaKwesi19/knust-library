@@ -52,7 +52,7 @@ export default function CatalogExplorer() {
 
   const reserveMutation = useMutation({
     mutationFn: async (bookId: number) => {
-      const res = await API.post('/student/reserve-book', { bookId: bookId.toString() });
+const res = await API.post(`/student-reservations/books/${bookId}`);
       return res.data;
     },
     onSuccess: (data) => {
