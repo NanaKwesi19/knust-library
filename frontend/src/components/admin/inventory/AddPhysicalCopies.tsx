@@ -11,6 +11,7 @@ interface AddPhysicalCopiesProps {
   bookTitle?: string;
   defaultPrefix?: string;
   defaultLocation?: string;
+  startNumber?: number;
   onCancel: () => void;
   onConfirm: (copies: PhysicalCopyDraft[]) => void;
   isSubmitting?: boolean;
@@ -20,6 +21,7 @@ export default function AddPhysicalCopies({
   bookTitle,
   defaultPrefix = 'COPY',
   defaultLocation = '',
+  startNumber = 1,
   onCancel,
   onConfirm,
   isSubmitting = false,
@@ -31,13 +33,14 @@ export default function AddPhysicalCopies({
 
   const copies = useMemo<PhysicalCopyDraft[]>(() => {
     const safeQuantity = Math.min(Math.max(Number(quantity) || 1, 1), 500);
-    const safePrefix = prefix.trim() || 'COPY';
+    const safePrefix = (prefix || '').trim() || 'COPY';
+    const safeStart = Math.max(1, Number(startNumber) || 1);
     return Array.from({ length: safeQuantity }, (_, index) => ({
-      barcode: `${safePrefix}-${String(index + 1).padStart(3, '0')}`,
-      location: location.trim() || undefined,
+      barcode: `${safePrefix}-${String(safeStart + index).padStart(3, '0')}`,
+      location: (location || '').trim() || undefined,
       condition,
     }));
-  }, [quantity, prefix, location, condition]);
+  }, [quantity, prefix, location, condition, startNumber]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
