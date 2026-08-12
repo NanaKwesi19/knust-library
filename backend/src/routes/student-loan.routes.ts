@@ -8,7 +8,8 @@ const router = Router();
 router.use(protect, restrictTo(Role.STUDENT));
 
 const getSettings = async () => {
-  return prisma.librarySetting.findFirst() ?? {
+  const settings = await prisma.librarySetting.findFirst();
+  return settings ?? {
     loanDurationDays: 14,
     maxBooksPerStudent: 5,
     renewalLimit: 2,
