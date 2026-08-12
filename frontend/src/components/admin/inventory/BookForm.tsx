@@ -12,6 +12,8 @@ interface BookFormProps {
   onCancel: () => void;
 }
 
+const safeString = (value: unknown): string => (value == null ? '' : String(value));
+
 export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel }) => {
   const { addToast } = useToast();
   const queryClient = useQueryClient();
@@ -37,18 +39,32 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
 
   const mutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      const title = safeString(data.title);
+      const author = safeString(data.author);
+      const isbn = safeString(data.isbn);
+      const category = safeString(data.category);
+      const shelfLocation = safeString(data.shelfLocation);
+      const description = safeString(data.description);
+      const publisher = safeString(data.publisher);
+      const publishYear = safeString(data.publishYear);
+      const pages = safeString(data.pages);
+      const edition = safeString(data.edition);
+      const tags = safeString(data.tags);
+      const copiesCountValue = safeString(data.copiesCount);
+      const barcodePrefix = safeString(data.barcodePrefix);
+
       const payload: Record<string, any> = {
-        title: data.title.trim(),
-        author: data.author.trim(),
-        isbn: data.isbn.trim(),
-        category: data.category,
-        shelfLocation: data.shelfLocation.trim(),
-        description: data.description.trim() || undefined,
-        publisher: data.publisher.trim() || undefined,
-        publishYear: data.publishYear ? Number(data.publishYear) : undefined,
-        pages: data.pages ? Number(data.pages) : undefined,
-        edition: data.edition.trim() || undefined,
-        tags: data.tags.split(',').map(t => t.trim()).filter(Boolean),
+        title: title.trim(),
+        author: author.trim(),
+        isbn: isbn.trim(),
+        category,
+        shelfLocation: shelfLocation.trim(),
+        description: description.trim() || undefined,
+        publisher: publisher.trim() || undefined,
+        publishYear: publishYear ? Number(publishYear) : undefined,
+        pages: pages ? Number(pages) : undefined,
+        edition: edition.trim() || undefined,
+        tags: tags.split(',').map(t => t.trim()).filter(Boolean),
       };
 
       if (isEditing && book) {
@@ -56,8 +72,8 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
         return res.data;
       }
 
-      const copiesCount = Math.max(1, Math.min(1000, Number(data.copiesCount) || 1));
-      const prefix = data.barcodePrefix.trim() || data.isbn.trim();
+      const copiesCount = Math.max(1, Math.min(1000, Number(copiesCountValue) || 1));
+      const prefix = barcodePrefix.trim() || isbn.trim() || 'BOOK';
 
       payload.copies = Array.from({ length: copiesCount }, (_, index) => ({
         barcode: `${prefix}-${String(index + 1).padStart(3, '0')}`,
@@ -73,8 +89,8 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
       queryClient.refetchQueries({ queryKey: ['books'], type: 'active' });
 
       addToast(isEditing
-        ? `Book Updated: "${book?.title}" has been updated.`
-        : `Book Added: "${formData.title}" with ${Math.max(1, Number(formData.copiesCount) || 1)} physical copy/copies has been added to the catalog.`
+        ? `Book Updated: "${safeString(book?.title)}" has been updated.`
+        : `Book Added: "${safeString(formData.title)}" with ${Math.max(1, Number(safeString(formData.copiesCount)) || 1)} physical copy/copies has been added to the catalog.`
       );
 
       clearFormData();
@@ -93,14 +109,14 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.title.trim()) newErrors.title = 'Title is required';
-    if (!formData.author.trim()) newErrors.author = 'Author is required';
-    if (!formData.isbn.trim()) newErrors.isbn = 'ISBN is required';
-    if (!formData.category) newErrors.category = 'Category is required';
-    if (!formData.shelfLocation.trim()) newErrors.shelfLocation = 'Shelf location is required';
+    if (!safeString(formData.title).trim()) newErrors.title = 'Title is required';
+    if (!safeString(formData.author).trim()) newErrors.author = 'Author is required';
+    if (!safeString(formData.isbn).trim()) newErrors.isbn = 'ISBN is required';
+    if (!safeString(formData.category)) newErrors.category = 'Category is required';
+    if (!safeString(formData.shelfLocation).trim()) newErrors.shelfLocation = 'Shelf location is required';
 
     if (!isEditing) {
-      const copiesCount = Number(formData.copiesCount);
+      const copiesCount = Number(safeString(formData.copiesCount));
       if (!Number.isInteger(copiesCount) || copiesCount < 1 || copiesCount > 1000) {
         newErrors.copiesCount = 'Enter a whole number from 1 to 1000';
       }
@@ -129,12 +145,12 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Title *</label>
-          <input type="text" value={formData.title} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} className={inputClass('title')} placeholder="Introduction to Algorithms" />
+          <input type="text" value={safeString(formData.title)} onChange={e => setFormData(p => ({ ...p, title: e.target.value }))} className={inputClass('title')} placeholder="Introduction to Algorithms" />
           {errors.title && <p className="text-[10px] text-rose-500 mt-1">{errors.title}</p>}
         </div>
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Author *</label>
-          <input type="text" value={formData.author} onChange={e => setFormData(p => ({ ...p, author: e.target.value }))} className={inputClass('author')} placeholder="Thomas H. Cormen" />
+          <input type="text" value={safeString(formData.author)} onChange={e => setFormData(p => ({ ...p, author: e.target.value }))} className={inputClass('author')} placeholder="Thomas H. Cormen" />
           {errors.author && <p className="text-[10px] text-rose-500 mt-1">{errors.author}</p>}
         </div>
       </div>
@@ -142,13 +158,13 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">ISBN *</label>
-          <input type="text" value={formData.isbn} onChange={e => setFormData(p => ({ ...p, isbn: e.target.value }))} className={inputClass('isbn')} placeholder="978-0-262-03384-8" />
+          <input type="text" value={safeString(formData.isbn)} onChange={e => setFormData(p => ({ ...p, isbn: e.target.value }))} className={inputClass('isbn')} placeholder="978-0-262-03384-8" />
           {errors.isbn && <p className="text-[10px] text-rose-500 mt-1">{errors.isbn}</p>}
         </div>
         {!isEditing && (
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Number of Copies *</label>
-            <input type="number" min={1} max={1000} step={1} value={formData.copiesCount} onChange={e => setFormData(p => ({ ...p, copiesCount: e.target.value }))} className={inputClass('copiesCount')} placeholder="10" />
+            <input type="number" min={1} max={1000} step={1} value={safeString(formData.copiesCount)} onChange={e => setFormData(p => ({ ...p, copiesCount: e.target.value }))} className={inputClass('copiesCount')} placeholder="10" />
             {errors.copiesCount && <p className="text-[10px] text-rose-500 mt-1">{errors.copiesCount}</p>}
             <p className="text-[9px] text-slate-400 mt-1">Physical copies to add to inventory.</p>
           </div>
@@ -159,7 +175,7 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-2">Copy Identification</div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Barcode Prefix</label>
-          <input type="text" value={formData.barcodePrefix} onChange={e => setFormData(p => ({ ...p, barcodePrefix: e.target.value }))} className={inputClass('barcodePrefix')} placeholder="Leave blank to use ISBN" />
+          <input type="text" value={safeString(formData.barcodePrefix)} onChange={e => setFormData(p => ({ ...p, barcodePrefix: e.target.value }))} className={inputClass('barcodePrefix')} placeholder="Leave blank to use ISBN" />
           <p className="text-[9px] text-slate-400 mt-1">Copies will be generated as PREFIX-001, PREFIX-002, etc.</p>
         </div>
       )}
@@ -167,7 +183,7 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Category *</label>
-          <select value={formData.category} onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} className={inputClass('category')}>
+          <select value={safeString(formData.category)} onChange={e => setFormData(p => ({ ...p, category: e.target.value }))} className={inputClass('category')}>
             <option value="">Select category</option>
             <option value="Computer Science">Computer Science</option>
             <option value="Engineering">Engineering</option>
@@ -182,44 +198,44 @@ export const BookForm: React.FC<BookFormProps> = ({ book, onSuccess, onCancel })
         </div>
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Shelf Location *</label>
-          <input type="text" value={formData.shelfLocation} onChange={e => setFormData(p => ({ ...p, shelfLocation: e.target.value }))} className={inputClass('shelfLocation')} placeholder="CS-A-12" />
+          <input type="text" value={safeString(formData.shelfLocation)} onChange={e => setFormData(p => ({ ...p, shelfLocation: e.target.value }))} className={inputClass('shelfLocation')} placeholder="CS-A-12" />
           {errors.shelfLocation && <p className="text-[10px] text-rose-500 mt-1">{errors.shelfLocation}</p>}
         </div>
       </div>
 
       <div>
         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Description</label>
-        <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className={inputClass('description')} placeholder="Brief description of the book..." rows={3} />
+        <textarea value={safeString(formData.description)} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} className={inputClass('description')} placeholder="Brief description of the book..." rows={3} />
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Publisher</label>
-          <input type="text" value={formData.publisher} onChange={e => setFormData(p => ({ ...p, publisher: e.target.value }))} className={inputClass('publisher')} placeholder="MIT Press" />
+          <input type="text" value={safeString(formData.publisher)} onChange={e => setFormData(p => ({ ...p, publisher: e.target.value }))} className={inputClass('publisher')} placeholder="MIT Press" />
         </div>
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Publish Year</label>
-          <input type="number" value={formData.publishYear} onChange={e => setFormData(p => ({ ...p, publishYear: e.target.value }))} className={inputClass('publishYear')} placeholder="2009" min={1800} max={2100} />
+          <input type="number" value={safeString(formData.publishYear)} onChange={e => setFormData(p => ({ ...p, publishYear: e.target.value }))} className={inputClass('publishYear')} placeholder="2009" min={1800} max={2100} />
         </div>
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Pages</label>
-          <input type="number" value={formData.pages} onChange={e => setFormData(p => ({ ...p, pages: e.target.value }))} className={inputClass('pages')} placeholder="1312" min={1} />
+          <input type="number" value={safeString(formData.pages)} onChange={e => setFormData(p => ({ ...p, pages: e.target.value }))} className={inputClass('pages')} placeholder="1312" min={1} />
         </div>
       </div>
 
       <div>
         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Tags (comma separated)</label>
-        <input type="text" value={formData.tags} onChange={e => setFormData(p => ({ ...p, tags: e.target.value }))} className={inputClass('tags')} placeholder="algorithms, data structures, computer science" />
+        <input type="text" value={safeString(formData.tags)} onChange={e => setFormData(p => ({ ...p, tags: e.target.value }))} className={inputClass('tags')} placeholder="algorithms, data structures, computer science" />
       </div>
 
-      {!isEditing && Number(formData.copiesCount) > 0 && Number(formData.copiesCount) <= 1000 && (
+      {!isEditing && Number(safeString(formData.copiesCount)) > 0 && Number(safeString(formData.copiesCount)) <= 1000 && (
         <div className="rounded-xl border border-[#7A1C2C]/10 bg-[#7A1C2C]/5 p-3">
           <div className="text-[10px] font-black text-[#7A1C2C] uppercase tracking-wider">Inventory Preview</div>
           <p className="text-[10px] text-slate-500 mt-1">
-            {formData.copiesCount} physical {Number(formData.copiesCount) === 1 ? 'copy' : 'copies'} will be created as Available.
+            {safeString(formData.copiesCount)} physical {Number(safeString(formData.copiesCount)) === 1 ? 'copy' : 'copies'} will be created as Available.
           </p>
           <p className="text-[9px] text-slate-400 mt-1">
-            Example: {(formData.barcodePrefix.trim() || formData.isbn.trim() || 'ISBN')}-001, {(formData.barcodePrefix.trim() || formData.isbn.trim() || 'ISBN')}-002
+            Example: {(safeString(formData.barcodePrefix).trim() || safeString(formData.isbn).trim() || 'ISBN')}-001, {(safeString(formData.barcodePrefix).trim() || safeString(formData.isbn).trim() || 'ISBN')}-002
           </p>
         </div>
       )}
