@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 
 import { initCronJobs } from './jobs/cron.js';
+import { initMaintenanceRetentionJob } from './jobs/maintenance-retention.js';
 import authRoutes from './routes/auth.routes.js';
 import staffAuthRoutes from './routes/staff-auth.routes.js';
 import userRoutes from './routes/user.routes.js';
@@ -16,6 +17,7 @@ import roomRoutes from './routes/room.routes.js';
 import reservationRoutes from './routes/reservation.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import maintenanceRoutes from './routes/maintenance.routes.js';
+import maintenanceReportRoutes from './routes/maintenance-report.routes.js';
 import studentRoutes from './routes/student.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import resourceRoutes from './routes/resources.routes.js';
@@ -55,6 +57,7 @@ app.use('/api/v1/books', bookRoutes);
 app.use('/api/v1/rooms', roomRoutes);
 app.use('/api/v1/reservations', reservationRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/v1/maintenance/reports', maintenanceReportRoutes);
 app.use('/api/v1/maintenance', maintenanceRoutes);
 app.use('/api/v1/student', studentRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
@@ -80,4 +83,5 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 initCronJobs();
+initMaintenanceRetentionJob();
 app.listen(PORT, () => console.log(`[SERVER START]: Library backend server live at http://localhost:${PORT}`));
