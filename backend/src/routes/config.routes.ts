@@ -5,10 +5,50 @@ import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 
+// Public endpoint used by the frontend before authentication. It exposes only
+// maintenance-display information and no administrative settings.
+router.get('/public-maintenance', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const entries = await prisma.systemConfig.findMany({
+      where: {
+        key: {
+          in: ['maintenance_mode', 'maintenance_title', 'maintenance_message', 'maintenance_expected_return', 'maintenance_contact']
+        }
+      }
+    });
+
+    const config = Object.fromEntries(entries.map(entry => [entry.key, entry.value]));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        maintenanceMode: config.maintenance_mode === 'true',
+        title: config.maintenance_title || 'KNUST Library is Temporarily Unavailable',
+        message: config.maintenance_message || 'We are performing scheduled maintenance to improve your library experience.',
+        expectedReturn: config.maintenance_expected_return || '',
+        contact: config.maintenance_contact || 'Please check back shortly.'
+      }
+    });
+  } catch (error) {
+    console.error('Public maintenance status error:', error);
+    // Fail open on configuration failure so a settings outage cannot lock out users.
+    res.status(200).json({
+      success: true,
+      data: {
+        maintenanceMode: false,
+        title: 'KNUST Library is Temporarily Unavailable',
+        message: 'We are performing scheduled maintenance to improve your library experience.',
+        expectedReturn: '',
+        contact: 'Please check back shortly.'
+      }
+    });
+  }
+});
+
 router.use(protect);
 router.use(restrictTo(Role.ADMIN));
 
-router.get('/settings', async (req: Request, res: Response): Promise<void> => {
+router.get('/settings', async (_req: Request, res: Response): Promise<void> => {
   try {
     let settings = await (prisma as any).librarySetting.findFirst();
 
@@ -55,6 +95,14 @@ router.patch('/settings', async (req: Request, res: Response): Promise<void> => 
       data: req.body
     });
 
+    if (req.body.maintenanceMode !== undefined) {
+      await prisma.systemConfig.upsert({
+        where: { key: 'maintenance_mode' },
+        update: { value: String(Boolean(req.body.maintenanceMode)) },
+        create: { key: 'maintenance_mode', value: String(Boolean(req.body.maintenanceMode)), description: 'Global public-access maintenance mode' }
+      });
+    }
+
     await prisma.auditLog.create({
       data: {
         action: 'UPDATE_LIBRARY_SETTINGS',
@@ -70,7 +118,78 @@ router.patch('/settings', async (req: Request, res: Response): Promise<void> => 
   }
 });
 
-router.get('/backup', async (req: Request, res: Response): Promise<void> => {
+router.get('/maintenance-notice', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const keys = ['maintenance_mode', 'maintenance_title', 'maintenance_message', 'maintenance_expected_return', 'maintenance_contact'];
+    const entries = await prisma.systemConfig.findMany({ where: { key: { in: keys } } });
+    const values = Object.fromEntries(entries.map(entry => [entry.key, entry.value]));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        maintenanceMode: values.maintenance_mode === 'true',
+        title: values.maintenance_title || 'KNUST Library is Temporarily Unavailable',
+        message: values.maintenance_message || 'We are performing scheduled maintenance to improve your library experience.',
+        expectedReturn: values.maintenance_expected_return || '',
+        contact: values.maintenance_contact || 'Please check back shortly.'
+      }
+    });
+  } catch (error) {
+    console.error('Maintenance notice fetch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve maintenance notice.' });
+  }
+});
+
+router.patch('/maintenance-notice', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { maintenanceMode, title, message, expectedReturn, contact } = req.body;
+    const values: Record<string, string> = {
+      maintenance_mode: String(Boolean(maintenanceMode)),
+      maintenance_title: String(title || '').trim(),
+      maintenance_message: String(message || '').trim(),
+      maintenance_expected_return: String(expectedReturn || '').trim(),
+      maintenance_contact: String(contact || '').trim()
+    };
+
+    if (!values.maintenance_title || !values.maintenance_message) {
+      res.status(400).json({ success: false, error: 'Maintenance title and message are required.' });
+      return;
+    }
+
+    await prisma.$transaction(async tx => {
+      for (const [key, value] of Object.entries(values)) {
+        await tx.systemConfig.upsert({
+          where: { key },
+          update: { value },
+          create: { key, value, description: `Maintenance mode setting: ${key}` }
+        });
+      }
+
+      const settings = await tx.librarySetting.findFirst();
+      if (settings) {
+        await tx.librarySetting.update({
+          where: { id: settings.id },
+          data: { maintenanceMode: Boolean(maintenanceMode) }
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE_MAINTENANCE_MODE',
+          description: `Maintenance mode ${Boolean(maintenanceMode) ? 'enabled' : 'disabled'} and public notice updated`,
+          userId: req.user!.id
+        }
+      });
+    });
+
+    res.status(200).json({ success: true, message: 'Maintenance configuration saved.' });
+  } catch (error) {
+    console.error('Maintenance notice update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save maintenance configuration.' });
+  }
+});
+
+router.get('/backup', async (_req: Request, res: Response): Promise<void> => {
   try {
     let config = await (prisma as any).backupConfig.findFirst();
 
@@ -116,13 +235,12 @@ router.patch('/backup', async (req: Request, res: Response): Promise<void> => {
 
 import { performDatabaseBackup } from '../utils/backup.js';
 
-router.post('/backup/trigger', async (req: Request, res: Response): Promise<void> => {
+router.post('/backup/trigger', async (_req: Request, res: Response): Promise<void> => {
   try {
     await (prisma as any).backupConfig.updateMany({
       data: { lastBackup: new Date() }
     });
 
-    // Run the physical backup in the background
     performDatabaseBackup().catch(err => {
       console.error('Background backup failed:', err);
     });
@@ -138,7 +256,7 @@ router.post('/backup/trigger', async (req: Request, res: Response): Promise<void
   }
 });
 
-router.get('/email-templates', async (req: Request, res: Response): Promise<void> => {
+router.get('/email-templates', async (_req: Request, res: Response): Promise<void> => {
   try {
     let templates = await (prisma as any).emailTemplate.findMany();
 
@@ -210,12 +328,9 @@ router.patch('/email-templates/:id', async (req: Request, res: Response): Promis
   }
 });
 
-router.get('/all', async (req: Request, res: Response): Promise<void> => {
+router.get('/all', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const configurations = await prisma.systemConfig.findMany({
-      orderBy: { key: 'asc' }
-    });
-
+    const configurations = await prisma.systemConfig.findMany({ orderBy: { key: 'asc' } });
     res.status(200).json({ success: true, data: configurations });
   } catch (error) {
     console.error('Config fetch error:', error);
@@ -226,25 +341,17 @@ router.get('/all', async (req: Request, res: Response): Promise<void> => {
 router.post('/update-batch', async (req: Request, res: Response): Promise<void> => {
   try {
     const { settings } = req.body;
-
     if (!settings || typeof settings !== 'object') {
       res.status(400).json({ success: false, error: 'Invalid configuration payload.' });
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async tx => {
       const keys = Object.keys(settings);
-
       for (const key of keys) {
         const value = String(settings[key]);
-
-        await tx.systemConfig.upsert({
-          where: { key },
-          update: { value },
-          create: { key, value }
-        });
+        await tx.systemConfig.upsert({ where: { key }, update: { value }, create: { key, value } });
       }
-
       await tx.auditLog.create({
         data: {
           action: 'UPDATE_SYSTEM_CONFIG',
