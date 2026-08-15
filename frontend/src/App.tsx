@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './context/ToastContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoadingScreen } from './components/ui/LoadingScreen';
+import MaintenanceGate from './components/MaintenanceGate';
 import { Login } from './pages/Login';
 import { RegisterPage } from './pages/RegisterPage';
 
@@ -33,12 +34,14 @@ function RequireAuth({ children, roles }: { children: React.ReactNode; roles?: s
   if (roles && !roles.includes(user.role)) return <Navigate to={user.role === 'ADMIN' || user.role === 'LIBRARIAN' ? '/admin' : '/portal'} replace />;
   return <>{children}</>;
 }
+
 function PublicOnly({ children }: { children: React.ReactNode }) {
   const { user, token, isLoading } = useAuth();
   if (isLoading) return <LoadingScreen message="Loading..." />;
   if (token && user) return <Navigate to={user.role === 'ADMIN' || user.role === 'LIBRARIAN' ? '/admin' : '/portal'} replace />;
   return <>{children}</>;
 }
+
 function StudentPortal() {
   const { user, logout } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -46,5 +49,11 @@ function StudentPortal() {
     <Route index element={<DashboardOverview />} /><Route path="catalog" element={<CatalogExplorer />} /><Route path="borrowed" element={<MyBorrowedBooks />} /><Route path="reservations" element={<ReservationsPanel />} /><Route path="workspace" element={<StudySpaceScheduler />} /><Route path="digital" element={<DigitalLibrary userId={user.studentId || (user as any).userId || ''} />} /><Route path="notifications" element={<NotificationsPanel />} /><Route path="identity" element={<DigitalIdentity />} /><Route path="fines" element={<FinesPayments />} /><Route path="history" element={<ReadingHistory />} /><Route path="recommendations" element={<Recommendations />} /><Route path="profile" element={<ProfileSettings />} /><Route path="helpdesk" element={<LibraryHelpDesk />} /><Route path="policies" element={<LibraryPolicies />} /><Route path="*" element={<Navigate to="/portal" replace />} />
   </Routes></PortalLayout>;
 }
-function AppRoutes() { return <Routes><Route path="/login" element={<PublicOnly><Login /></PublicOnly>} /><Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} /><Route path="/admin/*" element={<RequireAuth roles={['ADMIN', 'LIBRARIAN']}><Suspense fallback={<LoadingScreen message="Loading admin..." />}><AdminDashboard /></Suspense></RequireAuth>} /><Route path="/portal/*" element={<RequireAuth roles={['STUDENT', 'STAFF']}><Suspense fallback={<LoadingScreen message="Loading portal..." />}><StudentPortal /></Suspense></RequireAuth>} /><Route path="/" element={<Navigate to="/portal" replace />} /><Route path="*" element={<Navigate to="/portal" replace />} /></Routes>; }
-export default function App() { return <QueryClientProvider client={queryClient}><ToastProvider><AuthProvider><BrowserRouter><AppRoutes /></BrowserRouter></AuthProvider></ToastProvider></QueryClientProvider>; }
+
+function AppRoutes() {
+  return <Routes><Route path="/login" element={<PublicOnly><Login /></PublicOnly>} /><Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} /><Route path="/admin/*" element={<RequireAuth roles={['ADMIN', 'LIBRARIAN']}><Suspense fallback={<LoadingScreen message="Loading admin..." />}><AdminDashboard /></Suspense></RequireAuth>} /><Route path="/portal/*" element={<RequireAuth roles={['STUDENT', 'STAFF']}><Suspense fallback={<LoadingScreen message="Loading portal..." />}><StudentPortal /></Suspense></RequireAuth>} /><Route path="/" element={<Navigate to="/portal" replace />} /><Route path="*" element={<Navigate to="/portal" replace />} /></Routes>;
+}
+
+export default function App() {
+  return <QueryClientProvider client={queryClient}><ToastProvider><AuthProvider><BrowserRouter><MaintenanceGate><AppRoutes /></MaintenanceGate></BrowserRouter></AuthProvider></ToastProvider></QueryClientProvider>;
+}
