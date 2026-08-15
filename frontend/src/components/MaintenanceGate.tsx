@@ -1,5 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { Wrench, Clock3, Mail } from 'lucide-react';
 import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +15,7 @@ interface MaintenanceConfig {
 
 export default function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const location = useLocation();
   const { data, isLoading } = useQuery<{ success: boolean; data: MaintenanceConfig }>({
     queryKey: ['publicMaintenance'],
     queryFn: async () => (await API.get('/config/public-maintenance')).data,
@@ -22,7 +24,12 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
     retry: 1,
   });
 
-  // Administrators must remain able to enter the system and turn maintenance off.
+  // Keep authentication pages reachable so an administrator can log in and
+  // disable maintenance mode. The server still blocks protected non-admin APIs.
+  if (location.pathname === '/login' || location.pathname === '/register') {
+    return <>{children}</>;
+  }
+
   const isAdmin = user?.role === 'ADMIN';
   const maintenance = data?.data;
 
@@ -37,12 +44,8 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
             <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/70">KNUST Library</p>
             <h1 className="mt-3 text-3xl sm:text-5xl font-black tracking-tight">{maintenance.title}</h1>
           </div>
-
           <div className="px-8 py-10 sm:px-14 sm:py-14 text-center">
-            <p className="mx-auto max-w-2xl text-base sm:text-lg leading-8 text-slate-600">
-              {maintenance.message}
-            </p>
-
+            <p className="mx-auto max-w-2xl text-base sm:text-lg leading-8 text-slate-600">{maintenance.message}</p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {maintenance.expectedReturn && (
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
@@ -59,7 +62,6 @@ export default function MaintenanceGate({ children }: { children: React.ReactNod
                 </div>
               )}
             </div>
-
             <p className="mt-8 text-xs text-slate-400">Please check back later. We apologize for the inconvenience.</p>
           </div>
         </div>
