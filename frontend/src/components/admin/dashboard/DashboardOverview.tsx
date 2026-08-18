@@ -14,6 +14,8 @@ import { formatDate, formatCurrency, formatNumber, formatRelative } from '../../
 import { Modal } from '../../ui/Modal';
 import { BookForm } from '../inventory/BookForm';
 import { UserForm } from '../users/UserForm';
+import { useDashboardLayout, type WidgetDefinition } from '../../../hooks/useDashboardLayout';
+import { DashboardCustomizeToolbar, WidgetEditControls } from '../layout/DashboardCustomize';
 import type { ApiResponse } from '../../../types/admin';
 import {
   ArrowLeftRight,
@@ -136,11 +138,35 @@ interface UserGrowth {
   totalUsers: number;
 }
 
+// Customizable overview widgets. `key` is persisted server-side - keep it
+// stable across releases. `title`/`icon` mirror what each widget used to
+// render as a hardcoded BentoItem header.
+const OVERVIEW_WIDGETS: WidgetDefinition[] = [
+  { key: 'circulationTrends', label: 'Circulation Trends', defaultWidth: 2, defaultHeight: 1 },
+  { key: 'quickActions', label: 'Quick Actions', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'overdueAlerts', label: 'Overdue Alerts', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'systemHealth', label: 'System Health', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'recentActivity', label: 'Recent Activity', defaultWidth: 2, defaultHeight: 1 },
+  { key: 'userGrowth', label: 'User Growth', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'fineCollection', label: 'Fine Collection', defaultWidth: 1, defaultHeight: 1 },
+];
+
 export default function DashboardOverview() {
   const { addToast } = useToast();
 
   // Quick Action Modals
   const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  const {
+    layout: widgetLayout,
+    isEditing: isEditingLayout,
+    setIsEditing: setIsEditingLayout,
+    isSaving: isSavingLayout,
+    toggleVisible: toggleWidgetVisible,
+    move: moveWidget,
+    toggleWidth: toggleWidgetWidth,
+    resetLayout: resetWidgetLayout,
+  } = useDashboardLayout('admin-overview', OVERVIEW_WIDGETS);
 
   // --- REAL BACKEND QUERIES ---
 
@@ -243,6 +269,34 @@ export default function DashboardOverview() {
     return formatDate(date);
   };
 
+  // Drives each BentoItem's colSpan/order/visibility/edit-controls from the
+  // saved widget layout, without needing to move any widget's inner content
+  // out of its original JSX block.
+  const getWidgetProps = (key: string) => {
+    const index = widgetLayout.findIndex((w) => w.key === key);
+    const entry = index >= 0 ? widgetLayout[index] : undefined;
+    const hidden = entry ? !entry.isVisible : false;
+
+    return {
+      colSpan: (entry?.width ?? 1) as 1 | 2,
+      style: { order: index >= 0 ? index : 0, display: hidden && !isEditingLayout ? 'none' : undefined } as React.CSSProperties,
+      className: hidden ? 'opacity-40' : undefined,
+      action:
+        isEditingLayout && entry ? (
+          <WidgetEditControls
+            isVisible={entry.isVisible}
+            canMoveLeft={index > 0}
+            canMoveRight={index < widgetLayout.length - 1}
+            isWide={entry.width === 2}
+            onToggleVisible={() => toggleWidgetVisible(key)}
+            onMoveLeft={() => moveWidget(key, -1)}
+            onMoveRight={() => moveWidget(key, 1)}
+            onToggleWidth={() => toggleWidgetWidth(key)}
+          />
+        ) : undefined,
+    };
+  };
+
   return (
     <motion.div
       variants={containerVariants}
@@ -291,9 +345,18 @@ export default function DashboardOverview() {
       </motion.div>
 
       {/* Bento Grid Dashboard */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dashboard Widgets</h3>
+        <DashboardCustomizeToolbar
+          isEditing={isEditingLayout}
+          onToggleEditing={() => setIsEditingLayout((v) => !v)}
+          onReset={resetWidgetLayout}
+          isSaving={isSavingLayout}
+        />
+      </div>
       <BentoGrid>
         {/* Circulation Trends Chart */}
-        <BentoItem colSpan={2} title="Circulation Trends" icon={<Activity className="w-4 h-4" />}>
+        <BentoItem {...getWidgetProps('circulationTrends')} title="Circulation Trends" icon={<Activity className="w-4 h-4" />}>
           {trends.length === 0 ? (
             <EmptyState
               title="No trend data"
@@ -329,7 +392,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* Quick Actions - Compact Single Column */}
-        <BentoItem title="Quick Actions" icon={<Zap className="w-4 h-4 text-amber-500" />}>
+        <BentoItem {...getWidgetProps('quickActions')} title="Quick Actions" icon={<Zap className="w-4 h-4 text-amber-500" />}>
           <div className="space-y-2">
             <button
               onClick={() => setActiveModal('checkout')}
@@ -383,7 +446,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* Overdue Alerts */}
-        <BentoItem title="Overdue Alerts" icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
+        <BentoItem {...getWidgetProps('overdueAlerts')} title="Overdue Alerts" icon={<AlertTriangle className="w-4 h-4 text-amber-500" />}>
           {!overdue ? (
             <EmptyState
               title="Loading..."
@@ -421,7 +484,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* System Status */}
-        <BentoItem title="System Health" icon={<ShieldCheck className="w-4 h-4 text-emerald-500" />}>
+        <BentoItem {...getWidgetProps('systemHealth')} title="System Health" icon={<ShieldCheck className="w-4 h-4 text-emerald-500" />}>
           {!health ? (
             <EmptyState
               title="Loading..."
@@ -474,7 +537,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* Recent Activity Feed */}
-        <BentoItem colSpan={2} title="Recent Activity" icon={<Clock className="w-4 h-4" />}>
+        <BentoItem {...getWidgetProps('recentActivity')} title="Recent Activity" icon={<Clock className="w-4 h-4" />}>
           {auditLoading ? (
             <EmptyState
               title="Loading..."
@@ -506,7 +569,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* User Growth */}
-        <BentoItem title="User Growth" icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}>
+        <BentoItem {...getWidgetProps('userGrowth')} title="User Growth" icon={<TrendingUp className="w-4 h-4 text-emerald-500" />}>
           {!userGrowth || userGrowth.length === 0 ? (
             <EmptyState
               title="Loading..."
@@ -555,7 +618,7 @@ export default function DashboardOverview() {
         </BentoItem>
 
         {/* Fine Collection */}
-        <BentoItem title="Fine Collection" icon={<Coins className="w-4 h-4 text-[#DC9A22]" />}>
+        <BentoItem {...getWidgetProps('fineCollection')} title="Fine Collection" icon={<Coins className="w-4 h-4 text-[#DC9A22]" />}>
           {!fines?.summary ? (
             <EmptyState
               title="Loading..."

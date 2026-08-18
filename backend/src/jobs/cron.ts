@@ -167,38 +167,73 @@ export function initCronJobs() {
     }
   });
 
-  // 5. Reservation Expiry Cleanup (Every Hour)
+  // 5. Reservation Pickup-Window Expiry (Every Hour)
+  // Only acts on reservations that are actually READY (a copy is being held
+  // for them, i.e. readyAt is set) - reservations still waiting in the queue
+  // for a copy to free up are never touched here, no matter how old they are.
   cron.schedule('0 * * * *', async () => {
     try {
-      console.log('[Cron] Running reservation cleanup...');
+      console.log('[Cron] Running reservation pickup-window expiry...');
       const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-      
+
       const expiredReservations = await prisma.reservation.findMany({
         where: {
           status: 'PENDING',
-          updatedAt: { lt: fortyEightHoursAgo } // Proxy for when they were notified
+          readyAt: { not: null, lt: fortyEightHoursAgo }
         }
       });
 
+      let cascaded = 0;
       for (const res of expiredReservations) {
         await prisma.reservation.update({
           where: { id: res.id },
-          data: { status: 'CANCELLED' }
+          data: { status: 'EXPIRED' }
         });
-        
+
         await prisma.notification.create({
           data: {
             userId: res.userId,
             title: 'Reservation Expired',
-            message: `Your reservation has been cancelled because you did not pick it up within 48 hours.`,
+            message: `Your held copy was released because it wasn't picked up within 48 hours.`,
             type: 'BOOKING_CANCELLED',
             priority: 'NORMAL'
           }
         });
+
+        if (!res.heldCopyId) continue;
+
+        // Offer the copy to the next student still waiting in the queue for
+        // this same book; otherwise release it back into general circulation.
+        const nextInQueue = await prisma.reservation.findFirst({
+          where: { targetId: res.targetId, type: res.type, status: 'PENDING', readyAt: null },
+          orderBy: { createdAt: 'asc' }
+        });
+
+        if (nextInQueue) {
+          await prisma.reservation.update({
+            where: { id: nextInQueue.id },
+            data: { readyAt: new Date(), heldCopyId: res.heldCopyId }
+          });
+          await prisma.notification.create({
+            data: {
+              userId: nextInQueue.userId,
+              title: 'Book Available',
+              message: `A copy you were waiting for is ready for pickup. It will be held for 48 hours.`,
+              type: 'BOOK_AVAILABLE',
+              priority: 'HIGH'
+            }
+          });
+          cascaded++;
+        } else {
+          await prisma.bookCopy.update({
+            where: { id: res.heldCopyId },
+            data: { status: 'AVAILABLE' }
+          });
+        }
       }
-      console.log(`[Cron] Cancelled ${expiredReservations.length} expired reservations.`);
+      console.log(`[Cron] Expired ${expiredReservations.length} unclaimed reservations, cascaded ${cascaded} to the next in queue.`);
     } catch (error) {
-      console.error('[Cron] Reservation cleanup failed:', error);
+      console.error('[Cron] Reservation expiry failed:', error);
     }
   });
 
@@ -551,39 +586,33 @@ export function initCronJobs() {
     }
   });
 
-  // 19. Stale Hold-Queue Ping & Purge (Runs Every Wednesday at 2:00 AM)
+  // 19. Long-Wait Queue Courtesy Ping (Runs Every Wednesday at 2:00 AM)
+  // Only pings students still waiting for a copy to free up (readyAt is
+  // still null) - once a copy is actually held for them, job #5 above owns
+  // the 48-hour pickup deadline. Waiting a long time for a popular book is
+  // not the student's fault, so this never auto-cancels anything.
   cron.schedule('0 2 * * 3', async () => {
     try {
-      console.log('[Cron] Running stale hold-queue ping & purge...');
+      console.log('[Cron] Running long-wait queue courtesy ping...');
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const fortyFiveDaysAgo = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000);
-      
-      // Ping users waiting > 30 days
+
       const staleHolds = await prisma.reservation.findMany({
-        where: { status: 'PENDING', createdAt: { lt: thirtyDaysAgo, gt: fortyFiveDaysAgo } }
+        where: { status: 'PENDING', readyAt: null, createdAt: { lt: thirtyDaysAgo } }
       });
       for (const hold of staleHolds) {
         await prisma.notification.create({
           data: {
             userId: hold.userId,
             title: 'Long Reservation Wait',
-            message: 'You have been waiting over 30 days for a book. Please check if you still need it.',
+            message: 'You have been waiting over 30 days for a book to become available. It\'s still in the queue - let us know if you no longer need it.',
             type: 'SYSTEM',
             priority: 'NORMAL'
           }
         });
       }
-      
-      // Purge holds waiting > 45 days
-      const purgedCount = await prisma.reservation.updateMany({
-        where: { status: 'PENDING', createdAt: { lt: fortyFiveDaysAgo } },
-        data: { status: 'CANCELLED' }
-      });
-      if (purgedCount.count > 0) {
-        console.log(`[Cron] Purged ${purgedCount.count} extremely stale holds.`);
-      }
+      console.log(`[Cron] Sent ${staleHolds.length} long-wait courtesy pings.`);
     } catch (error) {
-      console.error('[Cron] Stale hold ping failed:', error);
+      console.error('[Cron] Long-wait queue ping failed:', error);
     }
   });
 

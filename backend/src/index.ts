@@ -27,6 +27,8 @@ import configRoutes from './routes/config.routes.js';
 import fineRoutes from './routes/fine.routes.js';
 import libraryWorkflowRoutes from './routes/library-workflow.routes.js';
 import libraryIssueAnalysisRoutes from './routes/library-issue-analysis.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
 
 import { rateLimiter } from './middlewares/rateLimiter.js';
 import { auditLogInterceptor } from './middlewares/auditLogger.js';
@@ -36,7 +38,11 @@ const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS || '*' }));
-app.use(express.json());
+// Stash the raw request body alongside the parsed one so the Paystack
+// webhook can verify its HMAC signature against the exact bytes received.
+app.use(express.json({
+  verify: (req: any, _res, buf) => { req.rawBody = buf; }
+}));
 app.use(morgan('dev'));
 app.use(auditLogInterceptor);
 app.use(rateLimiter(200, 15 * 60 * 1000));
@@ -66,6 +72,8 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/audit-logs', auditLogRoutes);
 app.use('/api/v1/config', configRoutes);
 app.use('/api/v1/fines', fineRoutes);
+app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/library', libraryWorkflowRoutes);
 app.use('/api/v1/library', libraryIssueAnalysisRoutes);
 

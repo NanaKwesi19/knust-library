@@ -6,6 +6,7 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { StaffRegisterPage } from '../pages/StaffRegisterPage';
 import { StudentCommandCenter } from '../pages/StudentCommandCenter';
 import { AdminCommandCenter } from '../pages/AdminCommandCenter';
+import PaymentCallbackPage from '../pages/PaymentCallbackPage';
 
 export const AppRouter: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -18,6 +19,7 @@ export const AppRouter: React.FC = () => {
     <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
     <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
     <Route path="/staff-register" element={isAuthenticated ? <Navigate to="/" replace /> : <StaffRegisterPage />} />
+    <Route path="/payments/callback" element={isAuthenticated ? <PaymentCallbackPage /> : <Navigate to="/login" replace />} />
     <Route path="/" element={isAuthenticated ? (user?.role === 'ADMIN' ? <AdminCommandCenter /> : <StudentCommandCenter />) : <Navigate to="/login" replace />} />
     <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
   </Routes>;

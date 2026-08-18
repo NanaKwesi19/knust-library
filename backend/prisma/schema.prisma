@@ -169,8 +169,9 @@ model BookCopy {
   bookId    Int
   book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
 
-  loans Loan[]
-  
+  loans        Loan[]
+  reservations Reservation[]
+
   @@map("book_copies")
 }
 
@@ -210,13 +211,22 @@ model Reservation {
   scheduledFor DateTime?
   status       ReservationStatus @default(PENDING)
   notes        String?
-  
+
+  // Set once a held copy becomes free for this reservation. Null means the
+  // reservation is still waiting in the queue for a copy to free up. The
+  // pickup-window expiry job only acts on reservations where this is set.
+  readyAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   userId Int
   user   User @relation(fields: [userId], references: [id])
-  
+
+  // The specific physical copy being held for pickup once readyAt is set.
+  heldCopyId Int?
+  heldCopy   BookCopy? @relation(fields: [heldCopyId], references: [id], onDelete: SetNull)
+
   @@map("reservations")
 }
 
