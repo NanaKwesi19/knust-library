@@ -24,6 +24,7 @@ const Recommendations = lazy(() => import('./components/layout/modules/Recommend
 const ProfileSettings = lazy(() => import('./components/layout/modules/ProfileSettings'));
 const LibraryHelpDesk = lazy(() => import('./components/layout/modules/LibraryHelpDeskV2'));
 const LibraryPolicies = lazy(() => import('./components/layout/modules/LibraryPolicies'));
+const PaymentCallbackPage = lazy(() => import('./pages/PaymentCallbackPage'));
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1, refetchOnWindowFocus: false } } });
 
@@ -51,7 +52,7 @@ function StudentPortal() {
 }
 
 function AppRoutes() {
-  return <Routes><Route path="/login" element={<PublicOnly><Login /></PublicOnly>} /><Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} /><Route path="/admin/*" element={<RequireAuth roles={['ADMIN', 'LIBRARIAN']}><Suspense fallback={<LoadingScreen message="Loading admin..." />}><AdminDashboard /></Suspense></RequireAuth>} /><Route path="/portal/*" element={<RequireAuth roles={['STUDENT', 'STAFF']}><Suspense fallback={<LoadingScreen message="Loading portal..." />}><StudentPortal /></Suspense></RequireAuth>} /><Route path="/" element={<Navigate to="/portal" replace />} /><Route path="*" element={<Navigate to="/portal" replace />} /></Routes>;
+  return <Routes><Route path="/login" element={<PublicOnly><Login /></PublicOnly>} /><Route path="/register" element={<PublicOnly><RegisterPage /></PublicOnly>} /><Route path="/admin/*" element={<RequireAuth roles={['ADMIN', 'LIBRARIAN']}><Suspense fallback={<LoadingScreen message="Loading admin..." />}><AdminDashboard /></Suspense></RequireAuth>} /><Route path="/portal/*" element={<RequireAuth roles={['STUDENT', 'STAFF']}><Suspense fallback={<LoadingScreen message="Loading portal..." />}><StudentPortal /></Suspense></RequireAuth>} /><Route path="/payments/callback" element={<RequireAuth roles={['STUDENT', 'STAFF']}><Suspense fallback={<LoadingScreen message="Loading..." />}><PaymentCallbackPage /></Suspense></RequireAuth>} /><Route path="/" element={<Navigate to="/portal" replace />} /><Route path="*" element={<Navigate to="/portal" replace />} /></Routes>;
 }
 
 export default function App() {

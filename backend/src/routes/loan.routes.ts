@@ -295,7 +295,28 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (copy.status !== CopyStatus.AVAILABLE) {
+    // A RESERVED copy is only checkoutable by the student it's being held
+    // for; anyone else is blocked until the hold expires or is released.
+    let fulfillingReservationId: number | null = null;
+    if (copy.status === CopyStatus.RESERVED) {
+      const heldReservation = await prisma.reservation.findFirst({
+        where: { heldCopyId: copy.id, status: 'PENDING' }
+      });
+
+      if (heldReservation && heldReservation.userId !== student.id) {
+        res.status(400).json({
+          success: false,
+          error: 'This copy is being held for another student’s reservation and is not yet available for general checkout.'
+        });
+        return;
+      }
+
+      if (heldReservation) {
+        fulfillingReservationId = heldReservation.id;
+      }
+      // If the copy is RESERVED but no matching PENDING reservation exists
+      // (stale state), fall through and let checkout proceed as normal.
+    } else if (copy.status !== CopyStatus.AVAILABLE) {
       res.status(400).json({ success: false, error: `Copy is currently ${copy.status.toLowerCase()}.` });
       return;
     }
@@ -304,6 +325,13 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
     const calculatedDueDate = dueDate ? new Date(dueDate) : new Date(Date.now() + settings.loanDurationDays * 24 * 60 * 60 * 1000);
 
     const result = await prisma.$transaction(async (tx) => {
+      if (fulfillingReservationId) {
+        await tx.reservation.update({
+          where: { id: fulfillingReservationId },
+          data: { status: 'FULFILLED' }
+        });
+      }
+
       // Create loan
       const loan = await tx.loan.create({
         data: {
@@ -402,16 +430,10 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
         }
       });
 
-      // Update copy to available
-      await tx.bookCopy.update({
-        where: { id: loan.copyId },
-        data: { status: CopyStatus.AVAILABLE }
-      });
-
       // Create reading history
       await tx.readingHistory.create({
         data: {
-          
+
           userId: loan.userId,
           action: 'RETURNED',
           resourceType: 'BOOK',
@@ -428,7 +450,7 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
 
         fine = await tx.fine.create({
           data: {
-            
+
             loanId: loan.id,
             amount: parseFloat(fineAmount.toFixed(2)),
             status: FineStatus.UNPAID,
@@ -438,26 +460,45 @@ router.post('/return', async (req: Request, res: Response): Promise<void> => {
         });
       }
 
-      // Check if there's a pending reservation for this book
-      const pendingReservation = await tx.reservation.findFirst({
+      // Oldest reservation still waiting in the queue (not yet holding a copy)
+      // for this book gets first claim on the copy that just came back.
+      const nextInQueue = await tx.reservation.findFirst({
         where: {
           targetId: loan.copy.bookId.toString(),
           type: 'BOOK_HOLD',
-          status: 'PENDING'
+          status: 'PENDING',
+          readyAt: null
         },
         orderBy: { createdAt: 'asc' }
       });
 
-      if (pendingReservation) {
-        // Notify next in line (create notification)
+      if (nextInQueue) {
+        // Hold this exact copy for the reserving student instead of releasing
+        // it back into general circulation, and start their pickup window.
+        await tx.bookCopy.update({
+          where: { id: loan.copyId },
+          data: { status: CopyStatus.RESERVED }
+        });
+
+        await tx.reservation.update({
+          where: { id: nextInQueue.id },
+          data: { readyAt: now, heldCopyId: loan.copyId }
+        });
+
         await tx.notification.create({
           data: {
-            userId: pendingReservation.userId,
+            userId: nextInQueue.userId,
             title: 'Book Available',
-            message: `"${loan.copy.book.title}" is now available for pickup.`,
+            message: `"${loan.copy.book.title}" is ready for pickup. It will be held for 48 hours.`,
             type: 'BOOK_AVAILABLE',
             priority: 'HIGH'
           }
+        });
+      } else {
+        // No one waiting - release the copy back into general circulation.
+        await tx.bookCopy.update({
+          where: { id: loan.copyId },
+          data: { status: CopyStatus.AVAILABLE }
         });
       }
 

@@ -18,6 +18,7 @@ export const BentoGrid: React.FC<BentoGridProps> = ({ children, className }) => 
 interface BentoItemProps {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
   colSpan?: 1 | 2 | 3 | 4;
   rowSpan?: 1 | 2;
   title?: string;
@@ -28,6 +29,7 @@ interface BentoItemProps {
 export const BentoItem: React.FC<BentoItemProps> = ({
   children,
   className,
+  style,
   colSpan = 1,
   rowSpan = 1,
   title,
@@ -50,6 +52,7 @@ export const BentoItem: React.FC<BentoItemProps> = ({
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
+      style={style}
       className={cn(
         'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col',
         'hover:shadow-md hover:border-slate-300 transition-all duration-200',

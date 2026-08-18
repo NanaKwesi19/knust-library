@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 
 export const getStudentDashboardStats = async (req: Request, res: Response) => {
-  const userId = Number(req.params.userId);
+  const userId = req.user!.id;
 
   try {
     // Aggregated database calls

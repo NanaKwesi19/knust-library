@@ -3,10 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import API from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
+import { useDashboardLayout, type WidgetDefinition } from '../../../hooks/useDashboardLayout';
+import { DashboardCustomizeToolbar, WidgetEditControls } from '../../admin/layout/DashboardCustomize';
+import { BentoGrid, BentoItem } from '../../admin/layout/BentoGrid';
 import {
   BookOpen, Calendar, Clock, CheckCircle2, Bell, Receipt,
   Search, Library, ArrowRight, Loader2,
 } from 'lucide-react';
+
+const OVERVIEW_WIDGETS: WidgetDefinition[] = [
+  { key: 'quickActions', label: 'Quick Actions', defaultWidth: 2, defaultHeight: 1 },
+  { key: 'currentlyBorrowed', label: 'Currently Borrowed', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'upcomingReservations', label: 'Upcoming Reservations', defaultWidth: 1, defaultHeight: 1 },
+  { key: 'notifications', label: 'Recent Notifications', defaultWidth: 2, defaultHeight: 1 },
+];
 
 interface Loan {
   loanUuid: string;
@@ -43,6 +53,17 @@ interface DashboardStats {
 export default function DashboardOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const {
+    layout: widgetLayout,
+    isEditing: isEditingLayout,
+    setIsEditing: setIsEditingLayout,
+    isSaving: isSavingLayout,
+    toggleVisible: toggleWidgetVisible,
+    move: moveWidget,
+    toggleWidth: toggleWidgetWidth,
+    resetLayout: resetWidgetLayout,
+  } = useDashboardLayout('student-overview', OVERVIEW_WIDGETS);
 
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['studentDashboard'],
@@ -107,6 +128,33 @@ export default function DashboardOverview() {
     { label: 'Access Digital Library', icon: Library, path: '/portal/digital' },
   ];
 
+  // Drives each widget's colSpan/order/visibility/edit-controls from the
+  // saved layout, without moving any widget's inner content out of place.
+  const getWidgetProps = (key: string) => {
+    const index = widgetLayout.findIndex((w) => w.key === key);
+    const entry = index >= 0 ? widgetLayout[index] : undefined;
+    const hidden = entry ? !entry.isVisible : false;
+
+    return {
+      colSpan: (entry?.width ?? 1) as 1 | 2,
+      style: { order: index >= 0 ? index : 0, display: hidden && !isEditingLayout ? 'none' : undefined } as React.CSSProperties,
+      className: hidden ? 'opacity-40' : undefined,
+      action:
+        isEditingLayout && entry ? (
+          <WidgetEditControls
+            isVisible={entry.isVisible}
+            canMoveLeft={index > 0}
+            canMoveRight={index < widgetLayout.length - 1}
+            isWide={entry.width === 2}
+            onToggleVisible={() => toggleWidgetVisible(key)}
+            onMoveLeft={() => moveWidget(key, -1)}
+            onMoveRight={() => moveWidget(key, 1)}
+            onToggleWidth={() => toggleWidgetWidth(key)}
+          />
+        ) : undefined,
+    };
+  };
+
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
@@ -142,27 +190,36 @@ export default function DashboardOverview() {
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {quickActions.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => navigate(action.path)}
-              className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl hover:bg-[#800020] hover:text-white hover:border-[#800020] transition-all duration-150 group text-left"
-            >
-              <action.icon className="w-4 h-4 text-[#800020] group-hover:text-amber-400 shrink-0" />
-              <span className="text-[11px] font-semibold">{action.label}</span>
-            </button>
-          ))}
-        </div>
+      {/* Dashboard Widgets */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dashboard Widgets</h3>
+        <DashboardCustomizeToolbar
+          isEditing={isEditingLayout}
+          onToggleEditing={() => setIsEditingLayout((v) => !v)}
+          onReset={resetWidgetLayout}
+          isSaving={isSavingLayout}
+        />
       </div>
+      <BentoGrid>
+        {/* Quick Actions */}
+        <BentoItem {...getWidgetProps('quickActions')}>
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {quickActions.map((action) => (
+              <button
+                key={action.label}
+                onClick={() => navigate(action.path)}
+                className="flex items-center gap-2.5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl hover:bg-[#800020] hover:text-white hover:border-[#800020] transition-all duration-150 group text-left"
+              >
+                <action.icon className="w-4 h-4 text-[#800020] group-hover:text-amber-400 shrink-0" />
+                <span className="text-[11px] font-semibold">{action.label}</span>
+              </button>
+            ))}
+          </div>
+        </BentoItem>
 
-      {/* Two Column: Borrowed + Bookings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Currently Borrowed */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        <BentoItem {...getWidgetProps('currentlyBorrowed')}>
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-[#800020]" />
@@ -199,10 +256,10 @@ export default function DashboardOverview() {
               )}
             </div>
           )}
-        </div>
+        </BentoItem>
 
         {/* Upcoming Reservations */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        <BentoItem {...getWidgetProps('upcomingReservations')}>
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
               <Calendar className="w-4 h-4 text-amber-600" />
@@ -237,11 +294,10 @@ export default function DashboardOverview() {
               )}
             </div>
           )}
-        </div>
-      </div>
+        </BentoItem>
 
-      {/* Notifications */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm space-y-4">
+        {/* Notifications */}
+        <BentoItem {...getWidgetProps('notifications')}>
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
             <Bell className="w-4 h-4 text-[#800020]" />
@@ -280,7 +336,8 @@ export default function DashboardOverview() {
             )}
           </div>
         )}
-      </div>
+        </BentoItem>
+      </BentoGrid>
     </div>
   );
 }

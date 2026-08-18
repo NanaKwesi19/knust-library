@@ -17,6 +17,10 @@ services:
         sync: false
       - key: ML_SERVICE_URL
         sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYMENT_CALLBACK_URL
+        sync: false
 
   - type: web
     name: knust-library-ml

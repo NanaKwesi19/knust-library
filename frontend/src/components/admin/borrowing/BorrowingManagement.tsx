@@ -9,6 +9,7 @@ import { DataTable } from '../../ui/DataTable';
 import { SearchInput } from '../../ui/SearchInput';
 import { FilterSelect } from '../../ui/FilterSelect';
 import { Modal } from '../../ui/Modal';
+import { BarcodeScannerModal } from '../../ui/BarcodeScannerModal';
 import { SlideOver } from '../../ui/SlideOver';
 import { ConfirmDialog } from '../../ui/ConfirmDialog';
 import { EmptyState } from '../../ui/EmptyState';
@@ -27,6 +28,7 @@ import {
   BookOpen,
   User,
   Barcode,
+  ScanLine,
   ChevronLeft,
   ChevronRight,
   Download,
@@ -554,10 +556,27 @@ function CheckoutModal({
   const [studentId, setStudentId] = useState('');
   const [barcode, setBarcode] = useState('');
   const [durationDays, setDurationDays] = useState(14);
+  const [scanTarget, setScanTarget] = useState<'studentId' | 'barcode' | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({ studentId, barcode, durationDays });
+  };
+
+  const handleScanDetected = (code: string) => {
+    if (scanTarget === 'studentId') {
+      // Digital library card QR codes carry a JSON payload; a plain barcode
+      // scan (or a physical card printed with just the ID) is used as-is.
+      try {
+        const parsed = JSON.parse(code);
+        setStudentId(parsed.studentId || code);
+      } catch {
+        setStudentId(code);
+      }
+    } else if (scanTarget === 'barcode') {
+      setBarcode(code);
+    }
+    setScanTarget(null);
   };
 
   const inputClass = "w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#7A1C2C] focus:ring-2 focus:ring-[#7A1C2C]/10 transition-all";
@@ -572,34 +591,54 @@ function CheckoutModal({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Student ID *</label>
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={studentId}
-              onChange={e => setStudentId(e.target.value)}
-              placeholder="20234567"
-              pattern="\d{8}"
-              maxLength={8}
-              title="8-digit student ID"
-              className={`${inputClass} pl-10`}
-              required
-            />
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={studentId}
+                onChange={e => setStudentId(e.target.value)}
+                placeholder="20234567"
+                pattern="\d{8}"
+                maxLength={8}
+                title="8-digit student ID"
+                className={`${inputClass} pl-10`}
+                required
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanTarget('studentId')}
+              title="Scan student ID card"
+              className="shrink-0 h-[38px] w-[38px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-[#7A1C2C] transition-colors"
+            >
+              <ScanLine className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
         <div>
           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Book Barcode *</label>
-          <div className="relative">
-            <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              value={barcode}
-              onChange={e => setBarcode(e.target.value)}
-              placeholder="KNUST-BK-00001"
-              className={`${inputClass} pl-10`}
-              required
-            />
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={barcode}
+                onChange={e => setBarcode(e.target.value)}
+                placeholder="KNUST-BK-00001"
+                className={`${inputClass} pl-10`}
+                required
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setScanTarget('barcode')}
+              title="Scan book barcode"
+              className="shrink-0 h-[38px] w-[38px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 flex items-center justify-center text-slate-500 hover:text-[#7A1C2C] transition-colors"
+            >
+              <ScanLine className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
@@ -628,6 +667,18 @@ function CheckoutModal({
           </Button>
         </div>
       </form>
+
+      <BarcodeScannerModal
+        isOpen={scanTarget !== null}
+        onClose={() => setScanTarget(null)}
+        onDetected={handleScanDetected}
+        title={scanTarget === 'studentId' ? 'Scan Student ID' : 'Scan Book Barcode'}
+        description={
+          scanTarget === 'studentId'
+            ? "Point the camera at the student's digital library card QR code."
+            : 'Point the camera at the barcode on the book copy.'
+        }
+      />
     </Modal>
   );
 }
