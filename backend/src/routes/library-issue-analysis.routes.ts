@@ -1,62 +1,167 @@
 import { Router, Request, Response } from 'express';
-import { NotificationPriority, NotificationType, ReservationStatus, Role } from '@prisma/client';
-import type { LoanStatus } from '@prisma/client';
+import { NotificationPriority, NotificationType, Role } from '@prisma/client';
 import { protect } from '../middlewares/auth.js';
 import { prisma } from '../lib/prisma.js';
 
 const router = Router();
 router.use(protect);
 
-type ActiveLoanStatus = 'BORROWED' | 'RENEWED';
-const activeLoanStatuses: ActiveLoanStatus[] = ['BORROWED', 'RENEWED'];
+const categories = ['BORROWING', 'RESERVATION', 'ACCOUNT', 'SYSTEM', 'CATALOGUE', 'GENERAL'] as const;
+const priorities = ['HIGH', 'NORMAL', 'LOW'] as const;
+
+type Category = typeof categories[number];
+type Priority = typeof priorities[number];
 
 type ExtractedIssue = {
-  category: 'BORROWING' | 'RESERVATION' | 'ACCOUNT' | 'SYSTEM' | 'CATALOGUE' | 'GENERAL';
-  priority: 'HIGH' | 'NORMAL' | 'LOW';
+  category: Category;
+  priority: Priority;
   relatedRecord: { type: string; id: number; title: string; loanUuid?: string; targetId?: string } | null;
   suggestedAction: string;
 };
 
-function analyseText(description: string): Pick<ExtractedIssue, 'category' | 'priority'> {
-  const lower = description.toLowerCase();
-  const category = lower.match(/borrow|loan|due|return|renew|overdue/)
-    ? 'BORROWING'
-    : lower.match(/reserv|hold|queue|pickup/)
-      ? 'RESERVATION'
-      : lower.match(/login|password|account|email|student id|profile/)
-        ? 'ACCOUNT'
-        : lower.match(/database|website|portal|page|error|not working|system/)
-          ? 'SYSTEM'
-          : lower.match(/book|copy|barcode|shelf|catalog|catalogue/)
-            ? 'CATALOGUE'
-            : 'GENERAL';
-  const priority = lower.match(/urgent|emergency|cannot access|blocked|deadline|exam/)
-    ? 'HIGH'
-    : lower.match(/not working|missing|wrong|incorrect|problem|issue/)
-      ? 'NORMAL'
-      : 'LOW';
-  return { category, priority };
+type Candidate = {
+  type: 'LOAN' | 'RESERVATION' | 'BOOK';
+  id: number;
+  title: string;
+  loanUuid?: string;
+  targetId?: string;
+  status: string;
+  dueDate?: string;
+  returnedAt?: string;
+  author?: string;
+  isbn?: string;
+};
+
+// Multi-word phrases score higher than single words - a phrase match is a much
+// stronger, less ambiguous signal ("still shows borrowed" vs. just "shows").
+const CATEGORY_SIGNALS: Record<Exclude<Category, 'GENERAL'>, { phrase: string; weight: number }[]> = {
+  BORROWING: [
+    { phrase: 'still shows', weight: 2 }, { phrase: 'checked out', weight: 2 }, { phrase: 'check out', weight: 2 },
+    { phrase: 'due date', weight: 2 }, { phrase: 'due back', weight: 2 }, { phrase: 'getting a fine', weight: 2 },
+    { phrase: 'borrow', weight: 1 }, { phrase: 'borrowed', weight: 1 }, { phrase: 'borrowing', weight: 1 },
+    { phrase: 'loan', weight: 1 }, { phrase: 'loaned', weight: 1 }, { phrase: 'due', weight: 1 },
+    { phrase: 'overdue', weight: 1 }, { phrase: 'return', weight: 1 }, { phrase: 'returned', weight: 1 },
+    { phrase: 'renew', weight: 1 }, { phrase: 'renewal', weight: 1 }, { phrase: 'renewed', weight: 1 },
+    { phrase: 'extend', weight: 1 }, { phrase: 'fine', weight: 1 }
+  ],
+  RESERVATION: [
+    { phrase: 'ready for pickup', weight: 2 }, { phrase: 'pick up', weight: 2 }, { phrase: 'queue position', weight: 2 },
+    { phrase: 'waiting list', weight: 2 }, { phrase: 'hold expired', weight: 2 },
+    { phrase: 'reserve', weight: 1 }, { phrase: 'reserved', weight: 1 }, { phrase: 'reservation', weight: 1 },
+    { phrase: 'hold', weight: 1 }, { phrase: 'queue', weight: 1 }, { phrase: 'pickup', weight: 1 }, { phrase: 'waiting', weight: 1 }
+  ],
+  ACCOUNT: [
+    { phrase: 'log in', weight: 2 }, { phrase: 'sign in', weight: 2 }, { phrase: 'locked out', weight: 2 },
+    { phrase: 'student id', weight: 2 }, { phrase: 'can\'t access my account', weight: 2 },
+    { phrase: 'login', weight: 1 }, { phrase: 'password', weight: 1 }, { phrase: 'account', weight: 1 },
+    { phrase: 'email', weight: 1 }, { phrase: 'profile', weight: 1 }
+  ],
+  SYSTEM: [
+    { phrase: 'not working', weight: 2 }, { phrase: 'won\'t load', weight: 2 }, { phrase: 'wont load', weight: 2 },
+    { phrase: 'broken link', weight: 2 }, { phrase: 'keeps crashing', weight: 2 },
+    { phrase: 'website', weight: 1 }, { phrase: 'portal', weight: 1 }, { phrase: 'page', weight: 1 },
+    { phrase: 'error', weight: 1 }, { phrase: 'system', weight: 1 }, { phrase: 'crash', weight: 1 }, { phrase: 'bug', weight: 1 }
+  ],
+  CATALOGUE: [
+    { phrase: 'missing pages', weight: 2 }, { phrase: 'wrong book', weight: 2 }, { phrase: 'incorrect details', weight: 2 },
+    { phrase: 'book', weight: 1 }, { phrase: 'copy', weight: 1 }, { phrase: 'copies', weight: 1 },
+    { phrase: 'barcode', weight: 1 }, { phrase: 'shelf', weight: 1 }, { phrase: 'catalog', weight: 1 },
+    { phrase: 'catalogue', weight: 1 }, { phrase: 'isbn', weight: 1 }, { phrase: 'damaged', weight: 1 }
+  ]
+};
+
+const HIGH_PRIORITY_SIGNALS = ['urgent', 'emergency', 'asap', 'right now', 'immediately', 'exam', 'deadline', 'cannot access', 'can\'t access', 'blocked', 'locked out', 'today', 'tomorrow'];
+const NORMAL_PRIORITY_SIGNALS = ['not working', 'doesn\'t work', 'missing', 'wrong', 'incorrect', 'broken', 'problem', 'issue', 'error', 'still shows', 'charged'];
+
+function countMatches(lower: string, phrase: string): number {
+  return lower.split(phrase).length - 1;
 }
 
-async function analyseIssue(userId: number, description: string): Promise<ExtractedIssue> {
-  const { category, priority } = analyseText(description);
-  const [books, loan, reservation] = await Promise.all([
-    prisma.book.findMany({ where: { OR: [{ title: { contains: description, mode: 'insensitive' } }, { isbn: { contains: description, mode: 'insensitive' } }] }, select: { id: true, title: true }, take: 5 }),
-    prisma.loan.findFirst({ where: { userId, status: { in: activeLoanStatuses as LoanStatus[] } }, include: { copy: { include: { book: true } } }, orderBy: { createdAt: 'desc' } }),
-    prisma.reservation.findFirst({ where: { userId, status: ReservationStatus.PENDING }, orderBy: { createdAt: 'desc' } })
-  ]);
-  const book = books[0];
-  const relatedRecord = book
-    ? { type: 'BOOK', id: book.id, title: book.title }
-    : loan && category === 'BORROWING'
-      ? { type: 'LOAN', id: loan.id, title: loan.copy.book.title, loanUuid: loan.loanUuid }
-      : reservation && category === 'RESERVATION'
-        ? { type: 'RESERVATION', id: reservation.id, title: 'Pending reservation', targetId: reservation.targetId }
-        : null;
-  const suggestedAction = category === 'BORROWING'
-    ? 'Library staff should verify the loan, return or renewal record.'
+/**
+ * Scores every category by weighted keyword-phrase hits rather than stopping at
+ * the first match - a message that mentions both "reservation" and "renewed"
+ * is judged by which signal is actually stronger, not by which regex happens
+ * to run first.
+ */
+function scoreCategories(lower: string): Record<Exclude<Category, 'GENERAL'>, number> {
+  const scores = {} as Record<Exclude<Category, 'GENERAL'>, number>;
+  for (const category of Object.keys(CATEGORY_SIGNALS) as Exclude<Category, 'GENERAL'>[]) {
+    scores[category] = CATEGORY_SIGNALS[category].reduce((sum, { phrase, weight }) => sum + countMatches(lower, phrase) * weight, 0);
+  }
+  return scores;
+}
+
+/** Fixed tie-break order for categories with an equal, non-zero score - most common/actionable first. */
+const CATEGORY_TIE_BREAK: Exclude<Category, 'GENERAL'>[] = ['BORROWING', 'RESERVATION', 'CATALOGUE', 'ACCOUNT', 'SYSTEM'];
+
+function pickCategory(scores: Record<Exclude<Category, 'GENERAL'>, number>): Category {
+  let best: Category = 'GENERAL';
+  let bestScore = 0;
+  for (const category of CATEGORY_TIE_BREAK) {
+    if (scores[category] > bestScore) { best = category; bestScore = scores[category]; }
+  }
+  return best;
+}
+
+function pickPriority(lower: string): Priority {
+  const highScore = HIGH_PRIORITY_SIGNALS.reduce((sum, phrase) => sum + countMatches(lower, phrase) * 3, 0);
+  if (highScore > 0) return 'HIGH';
+  const normalScore = NORMAL_PRIORITY_SIGNALS.reduce((sum, phrase) => sum + countMatches(lower, phrase), 0);
+  return normalScore > 0 ? 'NORMAL' : 'LOW';
+}
+
+/** Significant (4+ letter) words shared between the description and a candidate's title. */
+function wordOverlap(lower: string, title: string): number {
+  const titleWords = title.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+  return titleWords.filter(word => lower.includes(word)).length;
+}
+
+/**
+ * Scores each fetched candidate against the description and the chosen
+ * category, so the record that actually matches what the student described
+ * wins - not just "the first loan on the account". A book whose title is
+ * quoted in the description, and that also happens to be the student's
+ * current active loan, scores far higher than an unrelated older loan.
+ */
+function pickRelatedRecord(lower: string, category: Category, candidates: Candidate[]): Candidate | null {
+  let best: Candidate | null = null;
+  let bestScore = 0;
+  candidates.forEach((candidate, index) => {
+    let score = wordOverlap(lower, candidate.title) * 3;
+    if (candidate.type === 'LOAN' && category === 'BORROWING') score += 2;
+    if (candidate.type === 'RESERVATION' && category === 'RESERVATION') score += 2;
+    if (candidate.type === 'BOOK' && (category === 'CATALOGUE' || category === 'BORROWING' || category === 'RESERVATION')) score += 1;
+    // Slight recency tiebreaker - candidates arrive most-recent-first per type.
+    score += Math.max(0, 0.1 * (5 - index));
+    if (score > bestScore) { best = candidate; bestScore = score; }
+  });
+  return bestScore >= 2 ? best : null;
+}
+
+function describeRecord(record: Candidate): string {
+  if (record.type === 'LOAN') {
+    return `loan for "${record.title}" (status ${record.status}${record.dueDate ? `, due ${record.dueDate}` : ''}${record.returnedAt ? `, returned ${record.returnedAt}` : ''})`;
+  }
+  if (record.type === 'RESERVATION') return `reservation for target ${record.targetId} (status ${record.status})`;
+  return `catalogue entry "${record.title}"${record.isbn ? ` (ISBN ${record.isbn})` : ''}`;
+}
+
+function suggestedActionFor(category: Category, record: Candidate | null): string {
+  if (record) {
+    if (category === 'BORROWING' && record.type === 'LOAN') {
+      return `Check the student's ${describeRecord(record)} and confirm whether a return, renewal, or fine adjustment is needed.`;
+    }
+    if (category === 'RESERVATION' && record.type === 'RESERVATION') {
+      return `Check the student's ${describeRecord(record)} and confirm the queue position or pickup window.`;
+    }
+    if (record.type === 'BOOK') {
+      return `Verify the catalogue record and physical copy for "${record.title}"${record.isbn ? ` (ISBN ${record.isbn})` : ''}.`;
+    }
+  }
+  return category === 'BORROWING'
+    ? 'Library staff should locate the relevant loan and verify the return or renewal record.'
     : category === 'RESERVATION'
-      ? 'Library staff should verify the reservation status and queue position.'
+      ? 'Library staff should locate the relevant reservation and verify its status and queue position.'
       : category === 'CATALOGUE'
         ? 'Library staff should verify the catalogue record and physical copy information.'
         : category === 'ACCOUNT'
@@ -64,14 +169,86 @@ async function analyseIssue(userId: number, description: string): Promise<Extrac
           : category === 'SYSTEM'
             ? 'Library staff should reproduce the reported system problem and check the affected service.'
             : 'Library staff should review the description and determine the appropriate resolution.';
-  return { category, priority, relatedRecord, suggestedAction };
+}
+
+/** Word-level keyword extraction for the catalogue search. */
+function extractKeywords(description: string): string[] {
+  return description.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length >= 4).slice(0, 6);
+}
+
+/**
+ * Gathers everything the student's account actually has on record - loans,
+ * reservations, and books matching keywords from their description - so the
+ * classifier only ever picks a relatedRecord from real rows instead of
+ * guessing blind, and can use those rows as classification signal too.
+ */
+async function gatherCandidates(userId: number, description: string): Promise<Candidate[]> {
+  const keywords = extractKeywords(description);
+  const [loans, reservations, books] = await Promise.all([
+    prisma.loan.findMany({
+      where: { userId },
+      include: { copy: { include: { book: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    }),
+    prisma.reservation.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 5 }),
+    keywords.length
+      ? prisma.book.findMany({
+          where: { OR: keywords.flatMap(word => [{ title: { contains: word, mode: 'insensitive' as const } }, { isbn: { contains: word, mode: 'insensitive' as const } }]) },
+          select: { id: true, title: true, author: true, isbn: true },
+          take: 5
+        })
+      : Promise.resolve([])
+  ]);
+
+  const candidates: Candidate[] = [];
+  loans.forEach(loan => candidates.push({
+    type: 'LOAN', id: loan.id, title: loan.copy.book.title, loanUuid: loan.loanUuid, status: loan.status,
+    dueDate: loan.dueDate.toISOString().slice(0, 10),
+    returnedAt: loan.returnedAt ? loan.returnedAt.toISOString().slice(0, 10) : undefined
+  }));
+  reservations.forEach(res => candidates.push({
+    type: 'RESERVATION', id: res.id, title: `${res.type} reservation`, targetId: res.targetId, status: res.status
+  }));
+  books.forEach(book => candidates.push({
+    type: 'BOOK', id: book.id, title: book.title, status: 'AVAILABLE', author: book.author, isbn: book.isbn ?? undefined
+  }));
+  return candidates;
+}
+
+function analyseIssue(description: string, candidates: Candidate[]): ExtractedIssue {
+  const lower = description.toLowerCase();
+
+  // Score every category from the description text alone first...
+  const scores = scoreCategories(lower);
+
+  // ...then let real account data reinforce the strongest match: a book
+  // mentioned by name that the student currently has on loan is strong
+  // evidence for BORROWING even if they never used the word "loan"; the same
+  // book on a pending reservation is evidence for RESERVATION.
+  candidates.forEach(candidate => {
+    const overlap = wordOverlap(lower, candidate.title);
+    if (overlap === 0) return;
+    if (candidate.type === 'LOAN' && candidate.status !== 'RETURNED') scores.BORROWING += overlap * 2;
+    if (candidate.type === 'RESERVATION' && candidate.status === 'PENDING') scores.RESERVATION += overlap * 2;
+  });
+
+  const category = pickCategory(scores);
+  const priority = pickPriority(lower);
+  const relatedRecord = pickRelatedRecord(lower, category, candidates);
+  const relatedRecordOut = relatedRecord
+    ? { type: relatedRecord.type, id: relatedRecord.id, title: relatedRecord.title, loanUuid: relatedRecord.loanUuid, targetId: relatedRecord.targetId }
+    : null;
+
+  return { category, priority, relatedRecord: relatedRecordOut, suggestedAction: suggestedActionFor(category, relatedRecord) };
 }
 
 router.post('/issues/analyse', async (req: Request, res: Response): Promise<void> => {
   try {
     const description = typeof req.body.description === 'string' ? req.body.description.trim() : '';
     if (description.length < 10) { res.status(400).json({ success: false, error: 'Please describe the problem in at least 10 characters.' }); return; }
-    const extracted = await analyseIssue(req.user!.id, description);
+    const candidates = await gatherCandidates(req.user!.id, description);
+    const extracted = analyseIssue(description, candidates);
     res.json({ success: true, data: { description, extracted } });
   } catch (error) {
     console.error('Library issue analysis error:', error);
