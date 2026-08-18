@@ -21,8 +21,6 @@ services:
         sync: false
       - key: PAYMENT_CALLBACK_URL
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
 
   - type: web
     name: knust-library-ml
